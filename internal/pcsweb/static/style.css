@@ -98,6 +98,11 @@ button { font-family: var(--sans); cursor: pointer; }
 .upload-button { border: 1px solid var(--green); background: var(--green); color: white; }
 .upload-button:disabled { cursor: not-allowed; opacity: .45; }
 .upload-button:not(:disabled):hover { background: var(--green-dark); }
+.download-launcher { display: flex; align-items: end; gap: 10px; padding: 0 25px 21px; border-bottom: 1px solid var(--line); }
+.download-path-wrap { display: flex; flex: 1; flex-direction: column; gap: 5px; color: var(--muted); font: 9px var(--mono); }
+.download-path-wrap input { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); outline: none; padding: 10px 11px; font: 12px var(--mono); }
+.download-path-wrap input:focus { border-color: var(--green); box-shadow: 0 0 0 4px rgba(13, 116, 99, .1); }
+.download-icon { background: #e5edf7; color: #3c6b9f; }
 .upload-workspace { background: var(--card); border: 1px solid rgba(255, 255, 255, .78); border-radius: 22px; box-shadow: 0 22px 60px rgba(49, 75, 59, .1); overflow: hidden; backdrop-filter: blur(14px); }
 .upload-heading { display: flex; justify-content: space-between; align-items: end; gap: 22px; padding: 27px 25px 24px; }
 .upload-heading h2 { margin: 0; font-size: 28px; letter-spacing: -.06em; }
@@ -141,6 +146,7 @@ footer span:last-child { text-align: right; }
   .account-login-button { align-self: flex-start; }
   .login-modal-card { padding: 25px 20px; }
   .upload-heading { align-items: stretch; flex-direction: column; padding: 22px 18px; }
+  .download-launcher { align-items: stretch; flex-direction: column; padding: 0 18px 18px; }
   .upload-task-list { padding: 0 18px 18px; }
   .task-heading { padding: 18px 18px 10px; }
   .upload-task { grid-template-columns: 34px minmax(0, 1fr) 62px; gap: 9px; }

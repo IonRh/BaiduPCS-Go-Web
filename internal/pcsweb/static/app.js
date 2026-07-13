@@ -26,6 +26,12 @@ const uploadPane = document.querySelector("#upload-pane");
 const uploadTaskList = document.querySelector("#upload-task-list");
 const taskCount = document.querySelector("#task-count");
 const taskSummary = document.querySelector("#task-summary");
+const downloadTab = document.querySelector("#download-tab");
+const downloadPane = document.querySelector("#download-pane");
+const downloadTaskCount = document.querySelector("#download-task-count");
+const downloadTaskSummary = document.querySelector("#download-task-summary");
+const downloadTaskList = document.querySelector("#download-task-list");
+const downloadPath = document.querySelector("#download-path");
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
@@ -88,7 +94,7 @@ function renderFiles(items) {
     if (button.dataset.dir === "true") loadFiles(button.dataset.open);
   }));
   list.querySelectorAll("[data-download]").forEach(button => button.addEventListener("click", () => {
-    window.location.href = `/api/download?path=${encodeURIComponent(button.dataset.download)}`;
+    startDownload(button.dataset.download);
   }));
   list.querySelectorAll("[data-rename]").forEach(button => button.addEventListener("click", () => renameItem(button.dataset.rename, button.dataset.name)));
 }
@@ -139,14 +145,63 @@ async function loadUploadTasks() {
   }
 }
 
+function renderDownloadTasks(tasks) {
+  downloadTaskCount.hidden = tasks.length === 0;
+  downloadTaskCount.textContent = tasks.length;
+  downloadTaskSummary.textContent = tasks.length ? `${tasks.length} 个任务` : "暂无任务";
+  if (!tasks.length) {
+    downloadTaskList.innerHTML = '<div class="task-empty">当前没有正在下载的任务。</div>';
+    return;
+  }
+  downloadTaskList.innerHTML = tasks.map(task => `<div class="upload-task">
+    <div class="task-icon download-icon">↓</div>
+    <div class="task-main">
+      <div class="task-name">${escapeHTML(task.path || task.save_path)}</div>
+      <div class="task-path">保存到：${escapeHTML(task.save_path)}</div>
+      <div class="task-progress"><span style="width:${task.progress}%"></span></div>
+    </div>
+    <div class="task-meta"><strong>${task.progress}%</strong><small>${escapeHTML(task.status)} · ${formatSize(task.total)}</small></div>
+  </div>`).join("");
+}
+
+async function loadDownloadTasks() {
+  if (appScreen.hidden) return;
+  try {
+    const response = await fetch("/api/download/tasks");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "读取下载任务失败");
+    renderDownloadTasks(data.tasks || []);
+  } catch (error) {
+    downloadTaskList.innerHTML = `<div class="task-empty">${escapeHTML(error.message)}</div>`;
+    downloadTaskCount.hidden = true;
+    downloadTaskSummary.textContent = "读取失败";
+  }
+}
+
+async function startDownload(remotePath) {
+  remotePath = String(remotePath || "").trim();
+  if (!remotePath) return;
+  try {
+    await requestJSON("/api/download/start", "POST", { path: remotePath });
+    downloadPath.value = remotePath;
+    switchTab("download");
+    await loadDownloadTasks();
+  } catch (error) {
+    showNotice(error.message);
+  }
+}
+
 function switchTab(tab) {
   state.activeTab = tab;
   const overview = tab === "overview";
   overviewTab.classList.toggle("active", overview);
-  uploadTab.classList.toggle("active", !overview);
+  uploadTab.classList.toggle("active", tab === "upload");
+  downloadTab.classList.toggle("active", tab === "download");
   overviewPane.hidden = !overview;
-  uploadPane.hidden = overview;
-  if (!overview) loadUploadTasks();
+  uploadPane.hidden = tab !== "upload";
+  downloadPane.hidden = tab !== "download";
+  if (tab === "upload") loadUploadTasks();
+  if (tab === "download") loadDownloadTasks();
 }
 
 async function loadStatus() {
@@ -228,7 +283,10 @@ document.querySelector("#refresh-button").addEventListener("click", () => loadFi
 document.querySelector("#mkdir-button").addEventListener("click", createFolder);
 overviewTab.addEventListener("click", () => switchTab("overview"));
 uploadTab.addEventListener("click", () => switchTab("upload"));
+downloadTab.addEventListener("click", () => switchTab("download"));
 document.querySelector("#upload-refresh").addEventListener("click", loadUploadTasks);
+document.querySelector("#download-refresh").addEventListener("click", loadDownloadTasks);
+document.querySelector("#download-start").addEventListener("click", () => startDownload(downloadPath.value));
 function openLoginModal() {
   loginModal.hidden = false;
   loginModal.removeAttribute("hidden");
@@ -274,6 +332,7 @@ loginForm.addEventListener("submit", async event => {
     await loadStatus();
     await loadFiles("/");
     await loadUploadTasks();
+    await loadDownloadTasks();
   } catch (error) {
     showLoginNotice(error.message);
   } finally {
@@ -325,5 +384,6 @@ uploadButton.addEventListener("click", () => {
 });
 setInterval(() => {
   loadUploadTasks();
+  loadDownloadTasks();
 }, 3000);
-loadStatus().then(loggedIn => { if (loggedIn) { loadFiles("/"); loadUploadTasks(); } });
+loadStatus().then(loggedIn => { if (loggedIn) { loadFiles("/"); loadUploadTasks(); loadDownloadTasks(); } });

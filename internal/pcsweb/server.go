@@ -19,7 +19,9 @@ import (
 	"github.com/qjfoidnh/BaiduPCS-Go/baidupcs"
 	"github.com/qjfoidnh/BaiduPCS-Go/internal/pcscommand"
 	"github.com/qjfoidnh/BaiduPCS-Go/internal/pcsconfig"
+	"github.com/qjfoidnh/BaiduPCS-Go/internal/pcsfunctions/pcsdownload"
 	"github.com/qjfoidnh/BaiduPCS-Go/internal/pcsfunctions/pcsupload"
+	"github.com/qjfoidnh/BaiduPCS-Go/requester/downloader"
 )
 
 //go:embed static/*
@@ -60,6 +62,15 @@ type uploadTaskResponse struct {
 	Status   string `json:"status"`
 }
 
+type downloadTaskResponse struct {
+	Path       string `json:"path"`
+	SavePath   string `json:"save_path"`
+	Total      int64  `json:"total"`
+	Downloaded int64  `json:"downloaded"`
+	Progress   int    `json:"progress"`
+	Status     string `json:"status"`
+}
+
 type renameRequest struct {
 	From string `json:"from"`
 	To   string `json:"to"`
@@ -81,6 +92,8 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/login", s.handleLogin)
 	mux.HandleFunc("/api/files", s.handleFiles)
 	mux.HandleFunc("/api/upload/tasks", s.handleUploadTasks)
+	mux.HandleFunc("/api/download/start", s.handleDownloadStart)
+	mux.HandleFunc("/api/download/tasks", s.handleDownloadTasks)
 	mux.HandleFunc("/api/mkdir", s.handleMkdir)
 	mux.HandleFunc("/api/rename", s.handleRename)
 	mux.HandleFunc("/api/upload", s.handleUpload)
@@ -253,6 +266,74 @@ func (s *Server) handleUploadTasks(w http.ResponseWriter, r *http.Request) {
 		}
 		tasks = append(tasks, uploadTaskResponse{Path: task.Path, Length: task.Length, Uploaded: uploaded, Progress: progress, Status: status})
 	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"tasks": tasks})
+}
+
+func (s *Server) handleDownloadStart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	if _, err := activePCS(); err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	var request struct {
+		Path string `json:"path"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	request.Path = normalizePath(request.Path)
+	if request.Path == "/" {
+		writeError(w, http.StatusBadRequest, errors.New("a file or directory path is required"))
+		return
+	}
+	go pcscommand.RunDownload([]string{request.Path}, nil)
+	writeJSON(w, http.StatusAccepted, map[string]string{"message": "download queued", "path": request.Path})
+}
+
+func (s *Server) handleDownloadTasks(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	if _, err := activePCS(); err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	tasks := make([]downloadTaskResponse, 0)
+	root := pcsconfig.Config.SaveDir
+	_ = filepath.WalkDir(root, func(filePath string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+		if entry.IsDir() || !strings.HasSuffix(filePath, pcsdownload.DownloadSuffix) {
+			return nil
+		}
+		stateFile, openErr := os.Open(filePath)
+		if openErr != nil {
+			return nil
+		}
+		state := downloader.NewInstanceState(stateFile, downloader.InstanceStateStorageFormatProto3)
+		info := state.Get()
+		_ = state.Close()
+		if info == nil || info.DownloadStatus == nil {
+			return nil
+		}
+		total := info.DownloadStatus.TotalSize()
+		downloaded := info.DownloadStatus.Downloaded()
+		progress := 0
+		if total > 0 {
+			progress = int(downloaded * 100 / total)
+			if progress > 100 {
+				progress = 100
+			}
+		}
+		savePath := strings.TrimSuffix(filePath, pcsdownload.DownloadSuffix)
+		tasks = append(tasks, downloadTaskResponse{Path: "", SavePath: savePath, Total: total, Downloaded: downloaded, Progress: progress, Status: "正在下载"})
+		return nil
+	})
 	writeJSON(w, http.StatusOK, map[string]interface{}{"tasks": tasks})
 }
 

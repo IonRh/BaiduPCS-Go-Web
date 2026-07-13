@@ -51,6 +51,7 @@
     <nav class="tabbar" aria-label="主导航">
       <button class="tab active" id="overview-tab" data-tab="overview">文件概览</button>
       <button class="tab" id="upload-tab" data-tab="upload">文件上传 <span class="task-badge" id="task-count" hidden>0</span></button>
+      <button class="tab" id="download-tab" data-tab="download">文件下载 <span class="task-badge" id="download-task-count" hidden>0</span></button>
     </nav>
 
     <div id="app-screen" hidden>
@@ -104,6 +105,28 @@
           </div>
           <div class="task-heading"><span>正在上传</span><small id="task-summary">暂无任务</small></div>
           <div id="upload-task-list" class="upload-task-list"></div>
+        </div>
+      </section>
+
+      <section id="download-pane" class="tab-pane" hidden>
+        <div class="upload-workspace">
+          <div class="upload-heading">
+            <div>
+              <p class="eyebrow">DOWNLOAD CENTER</p>
+              <h2>文件下载</h2>
+              <p>从概览页加入下载队列，任务会保存到程序配置的下载目录。</p>
+            </div>
+            <button class="quiet-button" id="download-refresh">刷新任务</button>
+          </div>
+          <div class="download-launcher">
+            <label class="download-path-wrap">
+              <span>网盘路径</span>
+              <input id="download-path" type="text" placeholder="例如：/文档/资料.zip">
+            </label>
+            <button class="primary-button" id="download-start">加入下载</button>
+          </div>
+          <div class="task-heading"><span>正在下载</span><small id="download-task-summary">暂无任务</small></div>
+          <div id="download-task-list" class="upload-task-list"></div>
         </div>
       </section>
     </div>
