@@ -1,13 +1,15 @@
-const state = { path: "/", page: 1, pageSize: 12, totalPages: 1, activeTab: "overview", uploadHistoryPage: 1, downloadHistoryPage: 1, historyPageSize: 10 };
+const state = { path: "/", page: 1, pageSize: 12, totalPages: 1, activeTab: "overview", uploadTargetPath: "/", uploadTargetSelected: false, uploadPickerPath: "/", uploadHistoryPage: 1, downloadHistoryPage: 1, historyPageSize: 10 };
 const list = document.querySelector("#file-list");
 const notice = document.querySelector("#notice");
 const breadcrumbs = document.querySelector("#breadcrumbs");
 const uploadInput = document.querySelector("#upload-files");
 const uploadButton = document.querySelector("#upload-button");
 const uploadDirectory = document.querySelector("#upload-directory");
+const uploadDirectoryTrigger = document.querySelector("#upload-directory-trigger");
 const uploadStatus = document.querySelector("#upload-status");
 const serverUploadPath = document.querySelector("#server-upload-path");
 const serverUploadButton = document.querySelector("#server-upload-button");
+const uploadNotice = document.querySelector("#upload-notice");
 const appScreen = document.querySelector("#app-screen");
 const loginModal = document.querySelector("#login-modal");
 const loginOpen = document.querySelector("#login-open");
@@ -43,6 +45,10 @@ const downloadHistoryPagination = document.querySelector("#download-history-pagi
 const downloadHistoryPrev = document.querySelector("#download-history-prev");
 const downloadHistoryNext = document.querySelector("#download-history-next");
 const downloadHistoryPageInfo = document.querySelector("#download-history-page-info");
+const uploadDirectoryModal = document.querySelector("#upload-directory-modal");
+const uploadDirectoryCurrent = document.querySelector("#upload-directory-current");
+const uploadDirectoryList = document.querySelector("#upload-directory-list");
+const uploadDirectoryUp = document.querySelector("#upload-directory-up");
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
@@ -76,10 +82,59 @@ function renderBreadcrumbs() {
   breadcrumbs.querySelectorAll("button").forEach(button => button.addEventListener("click", () => loadFiles(button.dataset.path)));
 }
 
-function renderUploadDirectories(items) {
-  const directories = [{ name: `当前目录 · ${state.path}`, path: state.path }];
-  items.filter(item => item.is_dir).forEach(item => directories.push({ name: item.name, path: item.path }));
-  uploadDirectory.innerHTML = directories.map(directory => `<option value="${escapeHTML(directory.path)}">${escapeHTML(directory.name)}</option>`).join("");
+function displayRemotePath(path) {
+  return path === "/" ? "根目录" : path;
+}
+
+function setUploadDirectory(path, selected = state.uploadTargetSelected) {
+  state.uploadTargetPath = path || "/";
+  state.uploadTargetSelected = selected;
+  uploadDirectory.value = state.uploadTargetPath;
+  uploadDirectoryTrigger.textContent = displayRemotePath(state.uploadTargetPath);
+}
+
+function parentRemotePath(path) {
+  const normalized = path || "/";
+  if (normalized === "/") return "/";
+  const parent = normalized.slice(0, normalized.lastIndexOf("/"));
+  return parent || "/";
+}
+
+async function loadUploadDirectoryPicker(path) {
+  state.uploadPickerPath = path || "/";
+  uploadDirectoryCurrent.textContent = displayRemotePath(state.uploadPickerPath);
+  uploadDirectoryUp.disabled = state.uploadPickerPath === "/";
+  uploadDirectoryList.innerHTML = '<div class="directory-empty">正在读取目录……</div>';
+  try {
+    const response = await fetch(`/api/files?path=${encodeURIComponent(state.uploadPickerPath)}&page=1&page_size=50`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "读取目录失败");
+    const directories = (data.items || []).filter(item => item.is_dir);
+    if (!directories.length) {
+      uploadDirectoryList.innerHTML = '<div class="directory-empty">当前目录没有子目录。</div>';
+      return;
+    }
+    uploadDirectoryList.innerHTML = directories.map(item => `<button type="button" class="directory-item" data-directory-path="${escapeHTML(item.path)}"><span>⌂</span><strong>${escapeHTML(item.name)}</strong><small>进入子目录</small></button>`).join("");
+    uploadDirectoryList.querySelectorAll("[data-directory-path]").forEach(button => button.addEventListener("click", () => loadUploadDirectoryPicker(button.dataset.directoryPath)));
+  } catch (error) {
+    uploadDirectoryList.innerHTML = `<div class="directory-empty">${escapeHTML(error.message)}</div>`;
+  }
+}
+
+function openUploadDirectoryPicker() {
+  uploadDirectoryModal.hidden = false;
+  uploadDirectoryModal.removeAttribute("hidden");
+  loadUploadDirectoryPicker(state.uploadTargetPath || state.path || "/");
+}
+
+function closeUploadDirectoryPicker() {
+  uploadDirectoryModal.hidden = true;
+  uploadDirectoryModal.setAttribute("hidden", "");
+}
+
+function showUploadNotice(message) {
+  uploadNotice.textContent = message;
+  uploadNotice.hidden = !message;
 }
 
 function renderFiles(items) {
@@ -338,7 +393,7 @@ async function loadFiles(path, page = 1) {
     if (!response.ok) throw new Error(data.error || "读取目录失败");
     state.path = data.path;
     renderBreadcrumbs();
-    renderUploadDirectories(data.items);
+    if (!state.uploadTargetSelected) setUploadDirectory(state.path, false);
     renderFiles(data.items);
     renderPagination(data.total, data.page, data.total_pages);
   } catch (error) {
@@ -440,6 +495,7 @@ loginForm.addEventListener("submit", async event => {
 uploadInput.addEventListener("change", () => {
   const count = uploadInput.files.length;
   uploadButton.disabled = count === 0;
+  showUploadNotice("");
   uploadStatus.textContent = count ? `已选择 ${count} 个文件，目标：${uploadDirectory.value}` : "选择文件后上传至指定目录";
 });
 uploadButton.addEventListener("click", () => {
@@ -449,6 +505,7 @@ uploadButton.addEventListener("click", () => {
   const formData = new FormData();
   formData.append("target_path", uploadDirectory.value);
   files.forEach(file => formData.append("files", file, file.name));
+  showUploadNotice("");
   uploadButton.disabled = true;
   uploadStatus.textContent = "正在准备上传……";
 
@@ -461,10 +518,10 @@ uploadButton.addEventListener("click", () => {
     let data = {};
     try { data = JSON.parse(request.responseText); } catch (_) { /* keep the generic error below */ }
     if (request.status < 200 || request.status >= 300) {
-      showNotice(data.error || "上传失败");
+      showUploadNotice(data.error || "上传失败");
       uploadStatus.textContent = "上传失败，请重试";
     } else {
-      showNotice("");
+      showUploadNotice("");
       uploadStatus.textContent = `上传完成 · ${data.count || files.length} 个文件`;
       uploadInput.value = "";
       loadFiles(state.path);
@@ -474,16 +531,18 @@ uploadButton.addEventListener("click", () => {
     uploadButton.disabled = false;
   });
   request.addEventListener("error", () => {
-    showNotice("上传连接中断");
+    showUploadNotice("上传连接中断");
     uploadStatus.textContent = "上传失败，请重试";
     uploadButton.disabled = false;
   });
   request.send(formData);
 });
-serverUploadButton.addEventListener("click", async () => {
+serverUploadButton.addEventListener("click", async event => {
+  event.preventDefault();
+  event.stopPropagation();
   const localPath = serverUploadPath.value.trim();
   if (!localPath) {
-    showNotice("请输入服务器本地文件路径");
+    showUploadNotice("请输入服务器本地文件路径");
     return;
   }
   serverUploadButton.disabled = true;
@@ -491,18 +550,29 @@ serverUploadButton.addEventListener("click", async () => {
   uploadStatus.textContent = `服务器文件排队中 · ${localPath}`;
   try {
     await requestJSON("/api/upload/local", "POST", { local_path: localPath, target_path: uploadDirectory.value });
-    showNotice("");
+    showUploadNotice("");
     uploadStatus.textContent = "服务器文件已加入上传队列";
     serverUploadPath.value = "";
     await loadUploadTasks();
     await loadUploadHistory();
   } catch (error) {
-    showNotice(error.message);
+    showUploadNotice(error.message);
     uploadStatus.textContent = "服务器文件上传失败";
   } finally {
     serverUploadButton.disabled = false;
     serverUploadButton.textContent = "上传服务器文件";
   }
+});
+uploadDirectoryTrigger.addEventListener("click", openUploadDirectoryPicker);
+document.querySelector("#upload-directory-close").addEventListener("click", closeUploadDirectoryPicker);
+document.querySelector("#upload-directory-close-backdrop").addEventListener("click", closeUploadDirectoryPicker);
+uploadDirectoryUp.addEventListener("click", () => loadUploadDirectoryPicker(parentRemotePath(state.uploadPickerPath)));
+document.querySelector("#upload-directory-choose").addEventListener("click", () => {
+  setUploadDirectory(state.uploadPickerPath, true);
+  closeUploadDirectoryPicker();
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && !uploadDirectoryModal.hidden) closeUploadDirectoryPicker();
 });
 setInterval(() => {
   loadUploadTasks();
