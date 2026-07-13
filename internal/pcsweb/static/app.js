@@ -26,6 +26,8 @@ const uploadPane = document.querySelector("#upload-pane");
 const uploadTaskList = document.querySelector("#upload-task-list");
 const taskCount = document.querySelector("#task-count");
 const taskSummary = document.querySelector("#task-summary");
+const uploadHistorySummary = document.querySelector("#upload-history-summary");
+const uploadHistoryList = document.querySelector("#upload-history-list");
 const downloadTab = document.querySelector("#download-tab");
 const downloadPane = document.querySelector("#download-pane");
 const downloadTaskCount = document.querySelector("#download-task-count");
@@ -147,6 +149,37 @@ async function loadUploadTasks() {
   }
 }
 
+function renderUploadHistory(history) {
+  uploadHistorySummary.textContent = history.length ? `${history.length} 条记录` : "暂无记录";
+  if (!history.length) {
+    uploadHistoryList.innerHTML = '<div class="task-empty">完成上传后，历史记录会显示在这里。</div>';
+    return;
+  }
+  uploadHistoryList.innerHTML = history.map(item => {
+    const files = (item.files || []).join("、");
+    const started = item.started_at ? formatDateTime(item.started_at) : "—";
+    const stateClass = item.status === "已完成" ? "history-success" : item.status === "失败" ? "history-failed" : "";
+    return `<div class="history-row">
+      <div class="history-main"><strong>${escapeHTML(files || "上传任务")}</strong><small>目标：${escapeHTML(item.target_path)}</small></div>
+      <span class="history-status ${stateClass}">${escapeHTML(item.status)}</span>
+      <span class="history-time">${started}</span>
+    </div>`;
+  }).join("");
+}
+
+async function loadUploadHistory() {
+  if (appScreen.hidden) return;
+  try {
+    const response = await fetch("/api/upload/history");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "读取上传历史失败");
+    renderUploadHistory(data.history || []);
+  } catch (error) {
+    uploadHistoryList.innerHTML = `<div class="task-empty">${escapeHTML(error.message)}</div>`;
+    uploadHistorySummary.textContent = "读取失败";
+  }
+}
+
 function renderDownloadTasks(tasks) {
   downloadTaskCount.hidden = tasks.length === 0;
   downloadTaskCount.textContent = tasks.length;
@@ -238,6 +271,7 @@ function switchTab(tab) {
   uploadPane.hidden = tab !== "upload";
   downloadPane.hidden = tab !== "download";
   if (tab === "upload") loadUploadTasks();
+  if (tab === "upload") loadUploadHistory();
   if (tab === "download") loadDownloadTasks();
   if (tab === "download") loadDownloadHistory();
 }
@@ -322,7 +356,7 @@ document.querySelector("#mkdir-button").addEventListener("click", createFolder);
 overviewTab.addEventListener("click", () => switchTab("overview"));
 uploadTab.addEventListener("click", () => switchTab("upload"));
 downloadTab.addEventListener("click", () => switchTab("download"));
-document.querySelector("#upload-refresh").addEventListener("click", loadUploadTasks);
+document.querySelector("#upload-refresh").addEventListener("click", () => { loadUploadTasks(); loadUploadHistory(); });
 document.querySelector("#download-refresh").addEventListener("click", () => { loadDownloadTasks(); loadDownloadHistory(); });
 document.querySelector("#download-start").addEventListener("click", () => startDownload(downloadPath.value));
 function openLoginModal() {
@@ -370,6 +404,7 @@ loginForm.addEventListener("submit", async event => {
     await loadStatus();
     await loadFiles("/");
     await loadUploadTasks();
+    await loadUploadHistory();
     await loadDownloadTasks();
     await loadDownloadHistory();
   } catch (error) {
@@ -411,6 +446,7 @@ uploadButton.addEventListener("click", () => {
       uploadInput.value = "";
       loadFiles(state.path);
       loadUploadTasks();
+      loadUploadHistory();
     }
     uploadButton.disabled = false;
   });
@@ -423,7 +459,8 @@ uploadButton.addEventListener("click", () => {
 });
 setInterval(() => {
   loadUploadTasks();
+  loadUploadHistory();
   loadDownloadTasks();
   loadDownloadHistory();
 }, 3000);
-loadStatus().then(loggedIn => { if (loggedIn) { loadFiles("/"); loadUploadTasks(); loadDownloadTasks(); loadDownloadHistory(); } });
+loadStatus().then(loggedIn => { if (loggedIn) { loadFiles("/"); loadUploadTasks(); loadUploadHistory(); loadDownloadTasks(); loadDownloadHistory(); } });

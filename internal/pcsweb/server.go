@@ -93,6 +93,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/login", s.handleLogin)
 	mux.HandleFunc("/api/files", s.handleFiles)
 	mux.HandleFunc("/api/upload/tasks", s.handleUploadTasks)
+	mux.HandleFunc("/api/upload/history", s.handleUploadHistory)
 	mux.HandleFunc("/api/download/start", s.handleDownloadStart)
 	mux.HandleFunc("/api/download/tasks", s.handleDownloadTasks)
 	mux.HandleFunc("/api/download/history", s.handleDownloadHistory)
@@ -275,6 +276,23 @@ func (s *Server) handleUploadTasks(w http.ResponseWriter, r *http.Request) {
 		tasks = append(tasks, uploadTaskResponse{ID: webTask.ID, Path: webTask.Path, Length: webTask.Length, Uploaded: uploaded, Progress: progress, Status: status})
 	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{"tasks": tasks})
+}
+
+func (s *Server) handleUploadHistory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	if _, err := activePCS(); err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	history, err := listUploadHistory(ensureSession(w, r))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"history": history})
 }
 
 func (s *Server) handleDownloadStart(w http.ResponseWriter, r *http.Request) {
@@ -475,6 +493,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	defer os.RemoveAll(tempDir)
 
 	localPaths := make([]string, 0, len(fileHeaders))
+	fileNames := make([]string, 0, len(fileHeaders))
 	for index, header := range fileHeaders {
 		name := filepath.Base(header.Filename)
 		if name == "." || name == "" || name == string(filepath.Separator) {
@@ -502,8 +521,14 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		localPaths = append(localPaths, localPath)
+		fileNames = append(fileNames, name)
 	}
 
+	historyID, err := beginUploadHistory(sessionID, targetPath, fileNames)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
 	taskIDs := make([]string, 0, len(localPaths))
 	for _, localPath := range localPaths {
 		var length int64
@@ -515,6 +540,16 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	uploadExecutionMu.Lock()
 	defer uploadExecutionMu.Unlock()
 	defer removeUploadTasks(taskIDs)
+	status := "已完成"
+	uploadErr := ""
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			status = "失败"
+			uploadErr = fmt.Sprint(recovered)
+		}
+		finishUploadHistory(historyID, status, uploadErr)
+	}()
+	updateUploadHistory(historyID, "上传中")
 	for _, taskID := range taskIDs {
 		updateUploadTask(taskID, "上传中")
 	}
@@ -569,6 +604,8 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	remotePath = normalizePath(remotePath)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", path.Base(remotePath)))
+	sessionID := ensureSession(w, r)
+	historyID, historyErr := beginDownloadHistory(sessionID, remotePath, "浏览器下载")
 	err = pcs.DownloadFile(remotePath, func(downloadURL string, jar http.CookieJar) error {
 		request, requestErr := http.NewRequestWithContext(r.Context(), http.MethodGet, downloadURL, nil)
 		if requestErr != nil {
@@ -595,8 +632,14 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 		return copyErr
 	})
 	if err != nil {
+		if historyErr == nil {
+			finishDownloadHistory(historyID, "失败", err.Error())
+		}
 		// Headers may already be sent for a partially streamed download.
 		return
+	}
+	if historyErr == nil {
+		finishDownloadHistory(historyID, "已完成", "")
 	}
 }
 
