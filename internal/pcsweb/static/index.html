@@ -15,76 +15,78 @@
         <span class="brand-mark">B</span>
         <span><b>BaiduPCS</b><small>WEB CONSOLE</small></span>
       </a>
-      <div class="connection"><span class="pulse"></span><span id="account-state">连接中</span></div>
+      <div class="connection">
+        <span class="pulse"></span>
+        <span id="account-state">连接中</span>
+        <button class="login-open" id="login-open">登录</button>
+      </div>
     </header>
 
-    <section id="login-screen" class="login-screen" hidden>
-      <div class="login-card">
-        <p class="eyebrow">PRIVATE ACCESS / BAIDU NETDISK</p>
-        <h1>先登录，<em>再出发。</em></h1>
-        <p class="lede">粘贴浏览器中百度网盘的 Cookie，凭借现有 CLI 登录配置访问你的文件。</p>
+    <div id="login-modal" class="modal" hidden>
+      <div class="modal-backdrop" id="login-close-backdrop"></div>
+      <div class="login-modal-card" role="dialog" aria-modal="true" aria-labelledby="login-title">
+        <button class="modal-close" id="login-close" aria-label="关闭">×</button>
+        <p class="eyebrow">ACCOUNT ACCESS</p>
+        <h2 id="login-title">登录百度网盘</h2>
+        <p class="modal-copy">粘贴浏览器中百度网盘的 Cookie，登录或切换账号。</p>
         <form id="login-form">
           <label class="cookie-label" for="cookie-input">百度网盘 Cookie</label>
-          <textarea id="cookie-input" rows="5" autocomplete="off" spellcheck="false" placeholder="BDUSS=...; STOKEN=...; BAIDUID=...;"></textarea>
+          <textarea id="cookie-input" rows="5" autocomplete="off" spellcheck="false" placeholder="BDUSS=...; STOKEN=...; BAIDUID=..."></textarea>
           <div class="login-hint">Cookie 只提交给当前运行的 BaiduPCS-Go，不会写入网页缓存。</div>
           <button class="primary-button login-button" type="submit">使用 Cookie 登录</button>
           <div id="login-notice" class="login-notice" hidden></div>
         </form>
       </div>
-      <div class="login-aside">
-        <span class="aside-number">01</span>
-        <strong>保持本地</strong>
-        <p>服务默认只监听 127.0.0.1。你的 Cookie 不会经过第三方页面。</p>
+    </div>
+
+    <section class="account-panel">
+      <div>
+        <p class="eyebrow">ACTIVE ACCOUNT</p>
+        <h1 id="account-name">未登录</h1>
+        <p class="lede" id="session-copy">点击右上角“登录”按钮，输入 Cookie 后开始管理文件。</p>
       </div>
+      <button class="account-login-button" id="account-login">登录账号</button>
     </section>
 
     <div id="app-screen" hidden>
-    <section class="intro">
-      <div>
-        <p class="eyebrow">PERSONAL CLOUD / LOCAL GATEWAY</p>
-        <h1>你的网盘，<em>换一种视角。</em></h1>
-        <p class="lede">从命令行到浏览器，文件管理依然保持轻盈、直接。</p>
-      </div>
-      <div class="shortcut-card">
-        <span class="shortcut-label">启动地址</span>
-        <code id="origin">http://127.0.0.1:8080</code>
-        <span class="shortcut-hint">由 BaiduPCS-Go web 提供</span>
-      </div>
-    </section>
-
-    <section class="workspace">
-      <div class="toolbar">
-        <div class="crumbs" id="breadcrumbs"></div>
-        <div class="toolbar-actions">
-          <button class="quiet-button" id="refresh-button">刷新</button>
-          <button class="primary-button" id="mkdir-button"><span>＋</span>新建文件夹</button>
+      <section class="workspace">
+        <div class="toolbar">
+          <div class="crumbs" id="breadcrumbs"></div>
+          <div class="toolbar-actions">
+            <button class="quiet-button" id="refresh-button">刷新</button>
+            <button class="primary-button" id="mkdir-button"><span>＋</span>新建文件夹</button>
+          </div>
         </div>
-      </div>
-      <div class="upload-panel">
-        <div class="upload-copy">
-          <span class="upload-kicker">DROP ZONE / UPLOAD</span>
-          <strong>把文件放进网盘</strong>
-          <span id="upload-status">选择文件后上传至指定目录</span>
+        <div class="upload-panel">
+          <div class="upload-copy">
+            <span class="upload-kicker">DROP ZONE / UPLOAD</span>
+            <strong>把文件放进网盘</strong>
+            <span id="upload-status">选择文件后上传至指定目录</span>
+          </div>
+          <div class="upload-controls">
+            <label class="select-wrap">
+              <span>上传到</span>
+              <select id="upload-directory" aria-label="上传目录"></select>
+            </label>
+            <label class="file-picker">
+              <input id="upload-files" type="file" multiple>
+              <span>选择文件</span>
+            </label>
+            <button class="upload-button" id="upload-button" disabled>开始上传</button>
+          </div>
         </div>
-        <div class="upload-controls">
-          <label class="select-wrap">
-            <span>上传到</span>
-            <select id="upload-directory" aria-label="上传目录"></select>
-          </label>
-          <label class="file-picker">
-            <input id="upload-files" type="file" multiple>
-            <span>选择文件</span>
-          </label>
-          <button class="upload-button" id="upload-button" disabled>开始上传</button>
+        <div class="table-head"><span>文件名</span><span>修改时间</span><span>大小</span><span></span></div>
+        <div id="file-list" class="file-list"></div>
+        <div class="pagination" id="pagination" hidden>
+          <button class="page-button" id="page-prev">上一页</button>
+          <span id="page-info">第 1 / 1 页</span>
+          <button class="page-button" id="page-next">下一页</button>
         </div>
-      </div>
-      <div class="table-head"><span>文件名</span><span>修改时间</span><span>大小</span><span></span></div>
-      <div id="file-list" class="file-list"></div>
-      <div id="notice" class="notice" hidden></div>
-    </section>
+        <div id="notice" class="notice" hidden></div>
+      </section>
+    </div>
 
     <footer><span>BAIDUPCS-GO</span><span>LOCAL ONLY · YOUR SESSION STAYS HERE</span></footer>
-    </div>
   </main>
   <script src="/app.js"></script>
 </body>

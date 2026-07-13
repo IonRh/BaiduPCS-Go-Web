@@ -1,4 +1,4 @@
-const state = { path: "/" };
+const state = { path: "/", page: 1, pageSize: 12, totalPages: 1 };
 const list = document.querySelector("#file-list");
 const notice = document.querySelector("#notice");
 const breadcrumbs = document.querySelector("#breadcrumbs");
@@ -6,11 +6,19 @@ const uploadInput = document.querySelector("#upload-files");
 const uploadButton = document.querySelector("#upload-button");
 const uploadDirectory = document.querySelector("#upload-directory");
 const uploadStatus = document.querySelector("#upload-status");
-const loginScreen = document.querySelector("#login-screen");
 const appScreen = document.querySelector("#app-screen");
+const loginModal = document.querySelector("#login-modal");
+const loginOpen = document.querySelector("#login-open");
+const accountLogin = document.querySelector("#account-login");
+const accountName = document.querySelector("#account-name");
+const sessionCopy = document.querySelector("#session-copy");
 const loginForm = document.querySelector("#login-form");
 const cookieInput = document.querySelector("#cookie-input");
 const loginNotice = document.querySelector("#login-notice");
+const pagination = document.querySelector("#pagination");
+const pagePrev = document.querySelector("#page-prev");
+const pageNext = document.querySelector("#page-next");
+const pageInfo = document.querySelector("#page-info");
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
@@ -78,6 +86,15 @@ function renderFiles(items) {
   list.querySelectorAll("[data-rename]").forEach(button => button.addEventListener("click", () => renameItem(button.dataset.rename, button.dataset.name)));
 }
 
+function renderPagination(total, page, totalPages) {
+  state.page = page;
+  state.totalPages = totalPages;
+  pagination.hidden = totalPages <= 1;
+  pageInfo.textContent = `第 ${page} / ${totalPages} 页 · 共 ${total} 项`;
+  pagePrev.disabled = page <= 1;
+  pageNext.disabled = page >= totalPages;
+}
+
 async function loadStatus() {
   try {
     const response = await fetch("/api/status");
@@ -86,12 +103,18 @@ async function loadStatus() {
     const pulse = document.querySelector(".pulse");
     stateLabel.textContent = data.logged_in ? `已连接 · ${data.user_name}` : "未登录";
     pulse.classList.toggle("online", data.logged_in);
-    loginScreen.hidden = data.logged_in;
+    loginOpen.textContent = data.logged_in ? "切换登录" : "登录";
+    accountLogin.textContent = data.logged_in ? "切换账号" : "登录账号";
+    accountName.textContent = data.logged_in ? `已连接 · ${data.user_name}` : "未登录";
+    sessionCopy.textContent = data.logged_in ? "当前账号已连接，可以浏览、上传和管理网盘文件。" : "点击登录按钮，输入 Cookie 后开始管理文件。";
     appScreen.hidden = !data.logged_in;
     return data.logged_in;
   } catch (_) {
     document.querySelector("#account-state").textContent = "服务不可用";
-    loginScreen.hidden = false;
+    loginOpen.textContent = "登录";
+    accountLogin.textContent = "登录账号";
+    accountName.textContent = "服务不可用";
+    sessionCopy.textContent = "无法读取当前登录状态，请稍后重试。";
     appScreen.hidden = true;
     return false;
   }
@@ -102,21 +125,24 @@ function showLoginNotice(message) {
   loginNotice.hidden = !message;
 }
 
-async function loadFiles(path) {
+async function loadFiles(path, page = 1) {
   state.path = path || "/";
+  state.page = page;
   renderBreadcrumbs();
   showNotice("");
   list.innerHTML = '<div class="loading">正在读取目录……</div>';
   try {
-    const response = await fetch(`/api/files?path=${encodeURIComponent(state.path)}`);
+    const response = await fetch(`/api/files?path=${encodeURIComponent(state.path)}&page=${state.page}&page_size=${state.pageSize}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "读取目录失败");
     state.path = data.path;
     renderBreadcrumbs();
     renderUploadDirectories(data.items);
     renderFiles(data.items);
+    renderPagination(data.total, data.page, data.total_pages);
   } catch (error) {
     list.innerHTML = "";
+    pagination.hidden = true;
     showNotice(error.message);
   }
 }
@@ -145,6 +171,25 @@ async function renameItem(oldPath, oldName) {
 
 document.querySelector("#refresh-button").addEventListener("click", () => loadFiles(state.path));
 document.querySelector("#mkdir-button").addEventListener("click", createFolder);
+function openLoginModal() {
+  loginModal.hidden = false;
+  cookieInput.focus();
+}
+
+function closeLoginModal() {
+  loginModal.hidden = true;
+  showLoginNotice("");
+}
+
+loginOpen.addEventListener("click", openLoginModal);
+accountLogin.addEventListener("click", openLoginModal);
+document.querySelector("#login-close").addEventListener("click", closeLoginModal);
+document.querySelector("#login-close-backdrop").addEventListener("click", closeLoginModal);
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && !loginModal.hidden) closeLoginModal();
+});
+pagePrev.addEventListener("click", () => loadFiles(state.path, state.page - 1));
+pageNext.addEventListener("click", () => loadFiles(state.path, state.page + 1));
 loginForm.addEventListener("submit", async event => {
   event.preventDefault();
   const cookies = cookieInput.value.trim();
@@ -165,6 +210,7 @@ loginForm.addEventListener("submit", async event => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "登录失败");
     cookieInput.value = "";
+    closeLoginModal();
     await loadStatus();
     await loadFiles("/");
   } catch (error) {
@@ -215,5 +261,4 @@ uploadButton.addEventListener("click", () => {
   });
   request.send(formData);
 });
-document.querySelector("#origin").textContent = window.location.origin;
 loadStatus().then(loggedIn => { if (loggedIn) loadFiles("/"); });

@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/qjfoidnh/BaiduPCS-Go/baidupcs"
@@ -37,8 +38,12 @@ type fileItem struct {
 }
 
 type filesResponse struct {
-	Path  string     `json:"path"`
-	Items []fileItem `json:"items"`
+	Path       string     `json:"path"`
+	Items      []fileItem `json:"items"`
+	Total      int        `json:"total"`
+	Page       int        `json:"page"`
+	PageSize   int        `json:"page_size"`
+	TotalPages int        `json:"total_pages"`
 }
 
 type statusResponse struct {
@@ -151,8 +156,39 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := filesResponse{Path: remotePath, Items: make([]fileItem, 0, len(items))}
-	for _, item := range items {
+	page := queryInt(r, "page", 1)
+	pageSize := queryInt(r, "page_size", 12)
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 12
+	}
+	if pageSize > 50 {
+		pageSize = 50
+	}
+	total := len(items)
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	start := (page - 1) * pageSize
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+	pageItems := items
+	if start < total {
+		pageItems = items[start:end]
+	} else {
+		pageItems = nil
+	}
+
+	response := filesResponse{Path: remotePath, Items: make([]fileItem, 0, len(pageItems)), Total: total, Page: page, PageSize: pageSize, TotalPages: totalPages}
+	for _, item := range pageItems {
 		response.Items = append(response.Items, fileItem{
 			FsID:     item.FsID,
 			Name:     item.Filename,
@@ -163,6 +199,14 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func queryInt(r *http.Request, key string, fallback int) int {
+	value, err := strconv.Atoi(r.URL.Query().Get(key))
+	if err != nil {
+		return fallback
+	}
+	return value
 }
 
 func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request) {
