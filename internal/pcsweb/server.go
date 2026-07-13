@@ -28,7 +28,9 @@ import (
 var staticFiles embed.FS
 
 type Server struct {
-	addr string
+	addr           string
+	accessPassword string
+	access         *accessState
 }
 
 type fileItem struct {
@@ -78,8 +80,12 @@ type renameRequest struct {
 }
 
 // NewServer creates the local web server used by the CLI web command.
-func NewServer(addr string) *Server {
-	return &Server{addr: addr}
+func NewServer(addr string, accessPassword ...string) *Server {
+	password := ""
+	if len(accessPassword) > 0 {
+		password = accessPassword[0]
+	}
+	return &Server{addr: addr, accessPassword: password, access: newAccessState()}
 }
 
 // Run starts the web server and blocks until it is stopped.
@@ -89,6 +95,8 @@ func (s *Server) Run() error {
 
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api/access/status", s.handleAccessStatus)
+	mux.HandleFunc("/api/access/login", s.handleAccessLogin)
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/login", s.handleLogin)
 	mux.HandleFunc("/api/files", s.handleFiles)
@@ -103,13 +111,14 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/upload", s.handleUpload)
 	mux.HandleFunc("/api/file", s.handleFile)
 	mux.HandleFunc("/api/download", s.handleDownload)
+	mux.HandleFunc("/api/server-download", s.handleServerDownload)
 
 	staticFS, err := fsSub(staticFiles, "static")
 	if err != nil {
 		panic(err)
 	}
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
-	return withNoCache(mux)
+	return withNoCache(s.withAccess(mux))
 }
 
 func fsSub(files embed.FS, dir string) (fs.FS, error) {
@@ -726,6 +735,41 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 		// Headers may already be sent for a partially streamed download.
 		return
 	}
+	if historyErr == nil {
+		finishDownloadHistory(historyID, "已完成", "")
+	}
+}
+
+func (s *Server) handleServerDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	localPath := strings.TrimSpace(r.URL.Query().Get("path"))
+	if localPath == "" {
+		writeError(w, http.StatusBadRequest, errors.New("a server file path is required"))
+		return
+	}
+	info, err := os.Stat(localPath)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("server file is not accessible: %w", err))
+		return
+	}
+	if !info.Mode().IsRegular() {
+		writeError(w, http.StatusBadRequest, errors.New("only a server file can be downloaded"))
+		return
+	}
+	file, err := os.Open(localPath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer file.Close()
+
+	sessionID := ensureSession(w, r)
+	historyID, historyErr := beginDownloadHistory(sessionID, localPath, "浏览器下载")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", info.Name()))
+	http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 	if historyErr == nil {
 		finishDownloadHistory(historyID, "已完成", "")
 	}

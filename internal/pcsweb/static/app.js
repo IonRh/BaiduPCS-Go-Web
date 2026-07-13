@@ -16,6 +16,10 @@ const loginOpen = document.querySelector("#login-open");
 const loginForm = document.querySelector("#login-form");
 const cookieInput = document.querySelector("#cookie-input");
 const loginNotice = document.querySelector("#login-notice");
+const accessModal = document.querySelector("#access-modal");
+const accessForm = document.querySelector("#access-form");
+const accessPassword = document.querySelector("#access-password");
+const accessNotice = document.querySelector("#access-notice");
 const pagination = document.querySelector("#pagination");
 const pagePrev = document.querySelector("#page-prev");
 const pageNext = document.querySelector("#page-next");
@@ -39,6 +43,7 @@ const downloadTaskCount = document.querySelector("#download-task-count");
 const downloadTaskSummary = document.querySelector("#download-task-summary");
 const downloadTaskList = document.querySelector("#download-task-list");
 const downloadPath = document.querySelector("#download-path");
+const serverDownloadPath = document.querySelector("#server-download-path");
 const downloadHistorySummary = document.querySelector("#download-history-summary");
 const downloadHistoryList = document.querySelector("#download-history-list");
 const downloadHistoryPagination = document.querySelector("#download-history-pagination");
@@ -377,9 +382,56 @@ async function loadStatus() {
   }
 }
 
+async function loadAppData() {
+  const loggedIn = await loadStatus();
+  if (!loggedIn) return;
+  await loadFiles("/");
+  await loadUploadTasks();
+  await loadUploadHistory();
+  await loadDownloadTasks();
+  await loadDownloadHistory();
+}
+
 function showLoginNotice(message) {
   loginNotice.textContent = message;
   loginNotice.hidden = !message;
+}
+
+function showAccessNotice(message) {
+  accessNotice.textContent = message;
+  accessNotice.hidden = !message;
+}
+
+function openAccessModal() {
+  accessModal.hidden = false;
+  accessModal.removeAttribute("hidden");
+  accessPassword.focus();
+}
+
+function closeAccessModal() {
+  accessModal.hidden = true;
+  accessModal.setAttribute("hidden", "");
+  showAccessNotice("");
+}
+
+async function loadAccessStatus() {
+  try {
+    const response = await fetch("/api/access/status");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "读取访问状态失败");
+    if (data.required && !data.authenticated) {
+      appScreen.hidden = true;
+      openAccessModal();
+      return false;
+    }
+    closeAccessModal();
+    return true;
+  } catch (error) {
+    appScreen.hidden = true;
+    openAccessModal();
+    showAccessNotice(error.message);
+    return false;
+  }
 }
 
 async function loadFiles(path, page = 1) {
@@ -435,6 +487,11 @@ document.querySelector("#upload-refresh").addEventListener("click", () => { load
 document.querySelector("#download-refresh").addEventListener("click", () => { loadDownloadTasks(); loadDownloadHistory(); });
 document.querySelector("#download-start").addEventListener("click", () => startDownload(downloadPath.value));
 document.querySelector("#browser-download").addEventListener("click", () => startBrowserDownload(downloadPath.value));
+document.querySelector("#server-browser-download").addEventListener("click", () => {
+  const localPath = serverDownloadPath.value.trim();
+  if (!localPath) return;
+  window.location.href = `/api/server-download?path=${encodeURIComponent(localPath)}`;
+});
 function openLoginModal() {
   loginModal.hidden = false;
   loginModal.removeAttribute("hidden");
@@ -452,6 +509,35 @@ document.querySelector("#login-close").addEventListener("click", closeLoginModal
 document.querySelector("#login-close-backdrop").addEventListener("click", closeLoginModal);
 document.addEventListener("keydown", event => {
   if (event.key === "Escape" && !loginModal.hidden) closeLoginModal();
+});
+accessForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  const password = accessPassword.value;
+  if (!password) {
+    showAccessNotice("请输入访问密码");
+    return;
+  }
+  const button = accessForm.querySelector("button[type=submit]");
+  button.disabled = true;
+  button.textContent = "正在验证……";
+  showAccessNotice("");
+  try {
+    const response = await fetch("/api/access/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "访问密码错误");
+    accessPassword.value = "";
+    closeAccessModal();
+    await loadAppData();
+  } catch (error) {
+    showAccessNotice(error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "进入 Web 页面";
+  }
 });
 pagePrev.addEventListener("click", () => loadFiles(state.path, state.page - 1));
 pageNext.addEventListener("click", () => loadFiles(state.path, state.page + 1));
@@ -480,12 +566,7 @@ loginForm.addEventListener("submit", async event => {
     if (!response.ok) throw new Error(data.error || "登录失败");
     cookieInput.value = "";
     closeLoginModal();
-    await loadStatus();
-    await loadFiles("/");
-    await loadUploadTasks();
-    await loadUploadHistory();
-    await loadDownloadTasks();
-    await loadDownloadHistory();
+    await loadAppData();
   } catch (error) {
     showLoginNotice(error.message);
   } finally {
@@ -581,4 +662,4 @@ setInterval(() => {
   loadDownloadTasks();
   loadDownloadHistory();
 }, 3000);
-loadStatus().then(loggedIn => { if (loggedIn) { loadFiles("/"); loadUploadTasks(); loadUploadHistory(); loadDownloadTasks(); loadDownloadHistory(); } });
+loadAccessStatus().then(accessGranted => { if (accessGranted) loadAppData(); });

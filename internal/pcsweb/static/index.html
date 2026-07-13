@@ -44,6 +44,20 @@
       </div>
     </div>
 
+    <div id="access-modal" class="modal" hidden>
+      <div class="login-modal-card" role="dialog" aria-modal="true" aria-labelledby="access-title">
+        <p class="eyebrow">WEB ACCESS</p>
+        <h2 id="access-title">输入访问密码</h2>
+        <p class="modal-copy">请输入启动 Web 页面时设置的访问密码。</p>
+        <form id="access-form">
+          <label class="cookie-label" for="access-password">访问密码</label>
+          <input id="access-password" class="access-password-input" type="password" autocomplete="current-password" autofocus>
+          <button class="primary-button login-button" type="submit">进入 Web 页面</button>
+          <div id="access-notice" class="login-notice" hidden></div>
+        </form>
+      </div>
+    </div>
+
     <div id="app-screen" hidden>
       <section id="overview-pane" class="tab-pane">
         <div class="workspace">
@@ -133,6 +147,13 @@
               <button class="quiet-button" id="browser-download">浏览器接收</button>
               <button class="primary-button" id="download-start">加入服务器队列</button>
             </div>
+          </div>
+          <div class="download-launcher server-download-launcher">
+            <label class="download-path-wrap">
+              <span>服务器文件路径</span>
+              <input id="server-download-path" type="text" placeholder="例如：D:\\Media\\video.mp4 或 /data/video">
+            </label>
+            <button type="button" class="primary-button" id="server-browser-download">下载到本地</button>
           </div>
           <div class="task-heading"><span>正在下载</span><small id="download-task-summary">暂无任务</small></div>
           <div id="download-task-list" class="upload-task-list"></div>

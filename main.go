@@ -339,10 +339,17 @@ func main() {
 					Value: "127.0.0.1:8080",
 					Usage: "Web 服务监听地址",
 				},
+				cli.StringFlag{
+					Name:  "password",
+					Usage: "Web 页面访问密码，不设置则不启用密码保护",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				fmt.Printf("Web 控制台已启动: http://%s\n", c.String("addr"))
-				return pcsweb.NewServer(c.String("addr")).Run()
+				if c.String("password") != "" {
+					fmt.Println("Web 页面访问密码保护已启用")
+				}
+				return pcsweb.NewServer(c.String("addr"), c.String("password")).Run()
 			},
 		},
 		{
