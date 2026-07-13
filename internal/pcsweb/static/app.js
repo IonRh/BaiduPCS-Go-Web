@@ -1,4 +1,4 @@
-const state = { path: "/", page: 1, pageSize: 12, totalPages: 1 };
+const state = { path: "/", page: 1, pageSize: 12, totalPages: 1, activeTab: "overview" };
 const list = document.querySelector("#file-list");
 const notice = document.querySelector("#notice");
 const breadcrumbs = document.querySelector("#breadcrumbs");
@@ -19,6 +19,13 @@ const pagination = document.querySelector("#pagination");
 const pagePrev = document.querySelector("#page-prev");
 const pageNext = document.querySelector("#page-next");
 const pageInfo = document.querySelector("#page-info");
+const overviewTab = document.querySelector("#overview-tab");
+const uploadTab = document.querySelector("#upload-tab");
+const overviewPane = document.querySelector("#overview-pane");
+const uploadPane = document.querySelector("#upload-pane");
+const uploadTaskList = document.querySelector("#upload-task-list");
+const taskCount = document.querySelector("#task-count");
+const taskSummary = document.querySelector("#task-summary");
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
@@ -93,6 +100,53 @@ function renderPagination(total, page, totalPages) {
   pageInfo.textContent = `第 ${page} / ${totalPages} 页 · 共 ${total} 项`;
   pagePrev.disabled = page <= 1;
   pageNext.disabled = page >= totalPages;
+}
+
+function renderUploadTasks(tasks) {
+  taskCount.hidden = tasks.length === 0;
+  taskCount.textContent = tasks.length;
+  taskSummary.textContent = tasks.length ? `${tasks.length} 个任务` : "暂无任务";
+  if (!tasks.length) {
+    uploadTaskList.innerHTML = '<div class="task-empty">当前没有正在上传的任务。</div>';
+    return;
+  }
+  uploadTaskList.innerHTML = tasks.map(task => {
+    const parts = String(task.path).split(/[\\/]/);
+    const name = parts[parts.length - 1] || task.path;
+    return `<div class="upload-task">
+      <div class="task-icon">↑</div>
+      <div class="task-main">
+        <div class="task-name">${escapeHTML(name)}</div>
+        <div class="task-path">${escapeHTML(task.path)}</div>
+        <div class="task-progress"><span style="width:${task.progress}%"></span></div>
+      </div>
+      <div class="task-meta"><strong>${task.progress}%</strong><small>${escapeHTML(task.status)} · ${formatSize(task.length)}</small></div>
+    </div>`;
+  }).join("");
+}
+
+async function loadUploadTasks() {
+  if (appScreen.hidden) return;
+  try {
+    const response = await fetch("/api/upload/tasks");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "读取上传任务失败");
+    renderUploadTasks(data.tasks || []);
+  } catch (error) {
+    uploadTaskList.innerHTML = `<div class="task-empty">${escapeHTML(error.message)}</div>`;
+    taskCount.hidden = true;
+    taskSummary.textContent = "读取失败";
+  }
+}
+
+function switchTab(tab) {
+  state.activeTab = tab;
+  const overview = tab === "overview";
+  overviewTab.classList.toggle("active", overview);
+  uploadTab.classList.toggle("active", !overview);
+  overviewPane.hidden = !overview;
+  uploadPane.hidden = overview;
+  if (!overview) loadUploadTasks();
 }
 
 async function loadStatus() {
@@ -172,6 +226,9 @@ async function renameItem(oldPath, oldName) {
 
 document.querySelector("#refresh-button").addEventListener("click", () => loadFiles(state.path));
 document.querySelector("#mkdir-button").addEventListener("click", createFolder);
+overviewTab.addEventListener("click", () => switchTab("overview"));
+uploadTab.addEventListener("click", () => switchTab("upload"));
+document.querySelector("#upload-refresh").addEventListener("click", loadUploadTasks);
 function openLoginModal() {
   loginModal.hidden = false;
   loginModal.removeAttribute("hidden");
@@ -216,6 +273,7 @@ loginForm.addEventListener("submit", async event => {
     closeLoginModal();
     await loadStatus();
     await loadFiles("/");
+    await loadUploadTasks();
   } catch (error) {
     showLoginNotice(error.message);
   } finally {
@@ -254,6 +312,7 @@ uploadButton.addEventListener("click", () => {
       uploadStatus.textContent = `上传完成 · ${data.count || files.length} 个文件`;
       uploadInput.value = "";
       loadFiles(state.path);
+      loadUploadTasks();
     }
     uploadButton.disabled = false;
   });
@@ -264,4 +323,7 @@ uploadButton.addEventListener("click", () => {
   });
   request.send(formData);
 });
-loadStatus().then(loggedIn => { if (loggedIn) loadFiles("/"); });
+setInterval(() => {
+  loadUploadTasks();
+}, 3000);
+loadStatus().then(loggedIn => { if (loggedIn) { loadFiles("/"); loadUploadTasks(); } });

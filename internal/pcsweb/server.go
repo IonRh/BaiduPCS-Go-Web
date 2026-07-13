@@ -19,6 +19,7 @@ import (
 	"github.com/qjfoidnh/BaiduPCS-Go/baidupcs"
 	"github.com/qjfoidnh/BaiduPCS-Go/internal/pcscommand"
 	"github.com/qjfoidnh/BaiduPCS-Go/internal/pcsconfig"
+	"github.com/qjfoidnh/BaiduPCS-Go/internal/pcsfunctions/pcsupload"
 )
 
 //go:embed static/*
@@ -51,6 +52,14 @@ type statusResponse struct {
 	UserName string `json:"user_name,omitempty"`
 }
 
+type uploadTaskResponse struct {
+	Path     string `json:"path"`
+	Length   int64  `json:"length"`
+	Uploaded int64  `json:"uploaded"`
+	Progress int    `json:"progress"`
+	Status   string `json:"status"`
+}
+
 type renameRequest struct {
 	From string `json:"from"`
 	To   string `json:"to"`
@@ -71,6 +80,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/login", s.handleLogin)
 	mux.HandleFunc("/api/files", s.handleFiles)
+	mux.HandleFunc("/api/upload/tasks", s.handleUploadTasks)
 	mux.HandleFunc("/api/mkdir", s.handleMkdir)
 	mux.HandleFunc("/api/rename", s.handleRename)
 	mux.HandleFunc("/api/upload", s.handleUpload)
@@ -199,6 +209,51 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, response)
+}
+
+func (s *Server) handleUploadTasks(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	if _, err := activePCS(); err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	database, err := pcsupload.NewUploadingDatabase()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer database.Close()
+
+	tasks := make([]uploadTaskResponse, 0, len(database.UploadingList))
+	for _, task := range database.UploadingList {
+		if task == nil || task.LocalFileMeta == nil {
+			continue
+		}
+		var uploaded int64
+		if task.State != nil {
+			for _, block := range task.State.BlockList {
+				if block != nil && block.CheckSum != "" {
+					uploaded += block.Range.End - block.Range.Begin
+				}
+			}
+		}
+		progress := 0
+		if task.Length > 0 {
+			progress = int(uploaded * 100 / task.Length)
+			if progress > 100 {
+				progress = 100
+			}
+		}
+		status := "等待上传"
+		if uploaded > 0 {
+			status = "正在上传"
+		}
+		tasks = append(tasks, uploadTaskResponse{Path: task.Path, Length: task.Length, Uploaded: uploaded, Progress: progress, Status: status})
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"tasks": tasks})
 }
 
 func queryInt(r *http.Request, key string, fallback int) int {

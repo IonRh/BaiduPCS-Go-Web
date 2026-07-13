@@ -48,41 +48,63 @@
       <button class="account-login-button" id="account-login">登录账号</button>
     </section>
 
+    <nav class="tabbar" aria-label="主导航">
+      <button class="tab active" id="overview-tab" data-tab="overview">文件概览</button>
+      <button class="tab" id="upload-tab" data-tab="upload">文件上传 <span class="task-badge" id="task-count" hidden>0</span></button>
+    </nav>
+
     <div id="app-screen" hidden>
-      <section class="workspace">
-        <div class="toolbar">
-          <div class="crumbs" id="breadcrumbs"></div>
-          <div class="toolbar-actions">
-            <button class="quiet-button" id="refresh-button">刷新</button>
-            <button class="primary-button" id="mkdir-button"><span>＋</span>新建文件夹</button>
+      <section id="overview-pane" class="tab-pane">
+        <div class="workspace">
+          <div class="toolbar">
+            <div class="crumbs" id="breadcrumbs"></div>
+            <div class="toolbar-actions">
+              <button class="quiet-button" id="refresh-button">刷新</button>
+              <button class="primary-button" id="mkdir-button"><span>＋</span>新建文件夹</button>
+            </div>
           </div>
-        </div>
-        <div class="upload-panel">
-          <div class="upload-copy">
-            <span class="upload-kicker">DROP ZONE / UPLOAD</span>
-            <strong>把文件放进网盘</strong>
-            <span id="upload-status">选择文件后上传至指定目录</span>
+          <div class="table-head"><span>文件名</span><span>修改时间</span><span>大小</span><span></span></div>
+          <div id="file-list" class="file-list"></div>
+          <div class="pagination" id="pagination" hidden>
+            <button class="page-button" id="page-prev">上一页</button>
+            <span id="page-info">第 1 / 1 页</span>
+            <button class="page-button" id="page-next">下一页</button>
           </div>
-          <div class="upload-controls">
-            <label class="select-wrap">
-              <span>上传到</span>
-              <select id="upload-directory" aria-label="上传目录"></select>
-            </label>
-            <label class="file-picker">
-              <input id="upload-files" type="file" multiple>
-              <span>选择文件</span>
-            </label>
-            <button class="upload-button" id="upload-button" disabled>开始上传</button>
+          <div id="notice" class="notice" hidden></div>
+        </div>
+      </section>
+
+      <section id="upload-pane" class="tab-pane" hidden>
+        <div class="upload-workspace">
+          <div class="upload-heading">
+            <div>
+              <p class="eyebrow">TRANSFER CENTER</p>
+              <h2>文件上传</h2>
+              <p>选择目标目录，上传任务会在这里持续显示。</p>
+            </div>
+            <button class="quiet-button" id="upload-refresh">刷新任务</button>
           </div>
+          <div class="upload-panel">
+            <div class="upload-copy">
+              <span class="upload-kicker">NEW UPLOAD</span>
+              <strong>把文件放进网盘</strong>
+              <span id="upload-status">选择文件后上传至指定目录</span>
+            </div>
+            <div class="upload-controls">
+              <label class="select-wrap">
+                <span>上传到</span>
+                <select id="upload-directory" aria-label="上传目录"></select>
+              </label>
+              <label class="file-picker">
+                <input id="upload-files" type="file" multiple>
+                <span>选择文件</span>
+              </label>
+              <button class="upload-button" id="upload-button" disabled>开始上传</button>
+            </div>
+          </div>
+          <div class="task-heading"><span>正在上传</span><small id="task-summary">暂无任务</small></div>
+          <div id="upload-task-list" class="upload-task-list"></div>
         </div>
-        <div class="table-head"><span>文件名</span><span>修改时间</span><span>大小</span><span></span></div>
-        <div id="file-list" class="file-list"></div>
-        <div class="pagination" id="pagination" hidden>
-          <button class="page-button" id="page-prev">上一页</button>
-          <span id="page-info">第 1 / 1 页</span>
-          <button class="page-button" id="page-next">下一页</button>
-        </div>
-        <div id="notice" class="notice" hidden></div>
       </section>
     </div>
 

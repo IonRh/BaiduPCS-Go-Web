@@ -43,6 +43,11 @@ body {
 .account-panel .lede { margin-top: 14px; }
 .account-login-button { border: 1px solid var(--line); border-radius: 9px; background: rgba(255, 255, 251, .75); color: var(--green); padding: 11px 15px; font-size: 12px; font-weight: 700; }
 .account-login-button:hover { border-color: var(--green); }
+.tabbar { display: flex; gap: 24px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+.tab { position: relative; border: 0; background: transparent; color: var(--muted); padding: 0 2px 12px; font-size: 13px; font-weight: 700; }
+.tab.active { color: var(--green); }
+.tab.active::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: var(--green); content: ""; }
+.task-badge { display: inline-grid; place-items: center; min-width: 17px; height: 17px; margin-left: 4px; padding: 0 4px; border-radius: 99px; background: var(--coral); color: white; font: 9px var(--mono); vertical-align: 1px; }
 .modal { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; }
 .modal[hidden] { display: none !important; }
 .modal-backdrop { position: absolute; inset: 0; background: rgba(27, 41, 40, .28); backdrop-filter: blur(4px); }
@@ -93,6 +98,25 @@ button { font-family: var(--sans); cursor: pointer; }
 .upload-button { border: 1px solid var(--green); background: var(--green); color: white; }
 .upload-button:disabled { cursor: not-allowed; opacity: .45; }
 .upload-button:not(:disabled):hover { background: var(--green-dark); }
+.upload-workspace { background: var(--card); border: 1px solid rgba(255, 255, 255, .78); border-radius: 22px; box-shadow: 0 22px 60px rgba(49, 75, 59, .1); overflow: hidden; backdrop-filter: blur(14px); }
+.upload-heading { display: flex; justify-content: space-between; align-items: end; gap: 22px; padding: 27px 25px 24px; }
+.upload-heading h2 { margin: 0; font-size: 28px; letter-spacing: -.06em; }
+.upload-heading p:not(.eyebrow) { color: var(--muted); font-size: 12px; margin: 9px 0 0; }
+.task-heading { display: flex; justify-content: space-between; align-items: center; padding: 21px 25px 12px; color: var(--ink); font-size: 13px; font-weight: 800; }
+.task-heading small { color: var(--muted); font: 10px var(--mono); font-weight: 400; }
+.upload-task-list { padding: 0 25px 23px; }
+.upload-task { display: grid; grid-template-columns: 38px minmax(0, 1fr) 150px; gap: 13px; align-items: center; border-top: 1px solid #edf1eb; padding: 15px 0; }
+.task-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #e8f1df; color: var(--green); font: 17px var(--mono); }
+.task-main { min-width: 0; }
+.task-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-size: 12px; font-weight: 700; }
+.task-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font: 10px var(--mono); margin-top: 3px; }
+.task-progress { height: 4px; margin-top: 10px; border-radius: 99px; background: #e6ece3; overflow: hidden; }
+.task-progress span { display: block; height: 100%; border-radius: inherit; background: var(--green); transition: width .3s ease; }
+.task-meta { text-align: right; }
+.task-meta strong, .task-meta small { display: block; }
+.task-meta strong { color: var(--green); font: 15px var(--mono); }
+.task-meta small { color: var(--muted); font: 10px var(--mono); margin-top: 4px; }
+.task-empty { padding: 25px 0 12px; color: var(--muted); font: 11px var(--mono); }
 .table-head { grid-template-columns: minmax(220px, 1fr) 160px 110px 42px; gap: 18px; padding: 15px 25px 11px; color: #9aa59e; font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .file-row { grid-template-columns: minmax(220px, 1fr) 160px 110px 42px; gap: 18px; min-height: 67px; padding: 0 25px; border-top: 1px solid #edf1eb; animation: rise .35s both; }
 .file-row:hover { background: #fbfcf8; }
@@ -116,6 +140,11 @@ footer span:last-child { text-align: right; }
   .account-panel { align-items: stretch; flex-direction: column; gap: 20px; padding: 55px 0 28px; }
   .account-login-button { align-self: flex-start; }
   .login-modal-card { padding: 25px 20px; }
+  .upload-heading { align-items: stretch; flex-direction: column; padding: 22px 18px; }
+  .upload-task-list { padding: 0 18px 18px; }
+  .task-heading { padding: 18px 18px 10px; }
+  .upload-task { grid-template-columns: 34px minmax(0, 1fr) 62px; gap: 9px; }
+  .task-meta small { line-height: 1.4; }
   .toolbar { grid-template-columns: 1fr; gap: 15px; padding: 18px; }
   .toolbar-actions { justify-content: space-between; }
   .upload-panel { align-items: stretch; flex-direction: column; padding: 18px; }
