@@ -1,4 +1,4 @@
-const state = { path: "/", page: 1, pageSize: 12, totalPages: 1, activeTab: "overview" };
+const state = { path: "/", page: 1, pageSize: 12, totalPages: 1, activeTab: "overview", uploadHistoryPage: 1, downloadHistoryPage: 1, historyPageSize: 10 };
 const list = document.querySelector("#file-list");
 const notice = document.querySelector("#notice");
 const breadcrumbs = document.querySelector("#breadcrumbs");
@@ -27,6 +27,10 @@ const taskCount = document.querySelector("#task-count");
 const taskSummary = document.querySelector("#task-summary");
 const uploadHistorySummary = document.querySelector("#upload-history-summary");
 const uploadHistoryList = document.querySelector("#upload-history-list");
+const uploadHistoryPagination = document.querySelector("#upload-history-pagination");
+const uploadHistoryPrev = document.querySelector("#upload-history-prev");
+const uploadHistoryNext = document.querySelector("#upload-history-next");
+const uploadHistoryPageInfo = document.querySelector("#upload-history-page-info");
 const downloadTab = document.querySelector("#download-tab");
 const downloadPane = document.querySelector("#download-pane");
 const downloadTaskCount = document.querySelector("#download-task-count");
@@ -35,6 +39,10 @@ const downloadTaskList = document.querySelector("#download-task-list");
 const downloadPath = document.querySelector("#download-path");
 const downloadHistorySummary = document.querySelector("#download-history-summary");
 const downloadHistoryList = document.querySelector("#download-history-list");
+const downloadHistoryPagination = document.querySelector("#download-history-pagination");
+const downloadHistoryPrev = document.querySelector("#download-history-prev");
+const downloadHistoryNext = document.querySelector("#download-history-next");
+const downloadHistoryPageInfo = document.querySelector("#download-history-page-info");
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
@@ -148,8 +156,13 @@ async function loadUploadTasks() {
   }
 }
 
-function renderUploadHistory(history) {
-  uploadHistorySummary.textContent = history.length ? `${history.length} 条记录` : "暂无记录";
+function renderUploadHistory(history, total, page, totalPages) {
+  state.uploadHistoryPage = page;
+  uploadHistorySummary.textContent = total ? `${total} 条记录` : "暂无记录";
+  uploadHistoryPagination.hidden = totalPages <= 1;
+  uploadHistoryPageInfo.textContent = `第 ${page} / ${totalPages} 页`;
+  uploadHistoryPrev.disabled = page <= 1;
+  uploadHistoryNext.disabled = page >= totalPages;
   if (!history.length) {
     uploadHistoryList.innerHTML = '<div class="task-empty">完成上传后，历史记录会显示在这里。</div>';
     return;
@@ -166,16 +179,17 @@ function renderUploadHistory(history) {
   }).join("");
 }
 
-async function loadUploadHistory() {
+async function loadUploadHistory(page = state.uploadHistoryPage) {
   if (appScreen.hidden) return;
   try {
-    const response = await fetch("/api/upload/history");
+    const response = await fetch(`/api/upload/history?page=${page}&page_size=${state.historyPageSize}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "读取上传历史失败");
-    renderUploadHistory(data.history || []);
+    renderUploadHistory(data.history || [], data.total || 0, data.page || 1, data.total_pages || 1);
   } catch (error) {
     uploadHistoryList.innerHTML = `<div class="task-empty">${escapeHTML(error.message)}</div>`;
     uploadHistorySummary.textContent = "读取失败";
+    uploadHistoryPagination.hidden = true;
   }
 }
 
@@ -212,8 +226,13 @@ async function loadDownloadTasks() {
   }
 }
 
-function renderDownloadHistory(history) {
-  downloadHistorySummary.textContent = history.length ? `${history.length} 条记录` : "暂无记录";
+function renderDownloadHistory(history, total, page, totalPages) {
+  state.downloadHistoryPage = page;
+  downloadHistorySummary.textContent = total ? `${total} 条记录` : "暂无记录";
+  downloadHistoryPagination.hidden = totalPages <= 1;
+  downloadHistoryPageInfo.textContent = `第 ${page} / ${totalPages} 页`;
+  downloadHistoryPrev.disabled = page <= 1;
+  downloadHistoryNext.disabled = page >= totalPages;
   if (!history.length) {
     downloadHistoryList.innerHTML = '<div class="task-empty">完成下载后，历史记录会显示在这里。</div>';
     return;
@@ -233,16 +252,17 @@ function formatDateTime(seconds) {
   return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(seconds * 1000));
 }
 
-async function loadDownloadHistory() {
+async function loadDownloadHistory(page = state.downloadHistoryPage) {
   if (appScreen.hidden) return;
   try {
-    const response = await fetch("/api/download/history");
+    const response = await fetch(`/api/download/history?page=${page}&page_size=${state.historyPageSize}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "读取下载历史失败");
-    renderDownloadHistory(data.history || []);
+    renderDownloadHistory(data.history || [], data.total || 0, data.page || 1, data.total_pages || 1);
   } catch (error) {
     downloadHistoryList.innerHTML = `<div class="task-empty">${escapeHTML(error.message)}</div>`;
     downloadHistorySummary.textContent = "读取失败";
+    downloadHistoryPagination.hidden = true;
   }
 }
 
@@ -379,6 +399,10 @@ document.addEventListener("keydown", event => {
 });
 pagePrev.addEventListener("click", () => loadFiles(state.path, state.page - 1));
 pageNext.addEventListener("click", () => loadFiles(state.path, state.page + 1));
+uploadHistoryPrev.addEventListener("click", () => loadUploadHistory(state.uploadHistoryPage - 1));
+uploadHistoryNext.addEventListener("click", () => loadUploadHistory(state.uploadHistoryPage + 1));
+downloadHistoryPrev.addEventListener("click", () => loadDownloadHistory(state.downloadHistoryPage - 1));
+downloadHistoryNext.addEventListener("click", () => loadDownloadHistory(state.downloadHistoryPage + 1));
 loginForm.addEventListener("submit", async event => {
   event.preventDefault();
   const cookies = cookieInput.value.trim();

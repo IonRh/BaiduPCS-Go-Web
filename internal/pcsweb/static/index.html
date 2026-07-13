@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BaiduPCS // Web Console</title>
+  <title>Cloud File Console</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -13,7 +13,7 @@
     <header class="topbar">
       <a class="brand" href="/">
         <span class="brand-mark">B</span>
-        <span><b>BaiduPCS</b><small>WEB CONSOLE</small></span>
+        <span><b>Cloud Files</b><small>WEB CONSOLE</small></span>
       </a>
       <nav class="tabbar" aria-label="主导航">
         <button class="tab active" id="overview-tab" data-tab="overview">文件概览</button>
@@ -37,7 +37,7 @@
         <form id="login-form">
           <label class="cookie-label" for="cookie-input">百度网盘 Cookie</label>
           <textarea id="cookie-input" rows="5" autocomplete="off" spellcheck="false" placeholder="BDUSS=...; STOKEN=...; BAIDUID=..."></textarea>
-          <div class="login-hint">Cookie 只提交给当前运行的 BaiduPCS-Go，不会写入网页缓存。</div>
+          <div class="login-hint">Cookie 只提交给当前运行的本地服务，不会写入网页缓存。</div>
           <button class="primary-button login-button" type="submit">使用 Cookie 登录</button>
           <div id="login-notice" class="login-notice" hidden></div>
         </form>
@@ -99,12 +99,17 @@
               <input id="server-upload-path" type="text" placeholder="例如：D:\\Media\\video.mp4 或 /data/video">
             </label>
             <button class="quiet-button" id="server-upload-button">上传服务器文件</button>
-            <small>路径由运行 BaiduPCS-Go 的服务器读取，可填写文件或目录。</small>
+            <small>路径由当前服务进程读取，可填写文件或目录。</small>
           </div>
           <div class="task-heading"><span>正在上传</span><small id="task-summary">暂无任务</small></div>
           <div id="upload-task-list" class="upload-task-list"></div>
           <div class="task-heading history-heading"><span>上传历史</span><small id="upload-history-summary">暂无记录</small></div>
           <div id="upload-history-list" class="download-history-list"></div>
+          <div class="history-pagination" id="upload-history-pagination" hidden>
+            <button class="page-button" id="upload-history-prev">上一页</button>
+            <span id="upload-history-page-info">第 1 / 1 页</span>
+            <button class="page-button" id="upload-history-next">下一页</button>
+          </div>
         </div>
       </section>
 
@@ -132,11 +137,16 @@
           <div id="download-task-list" class="upload-task-list"></div>
           <div class="task-heading history-heading"><span>下载历史</span><small id="download-history-summary">暂无记录</small></div>
           <div id="download-history-list" class="download-history-list"></div>
+          <div class="history-pagination" id="download-history-pagination" hidden>
+            <button class="page-button" id="download-history-prev">上一页</button>
+            <span id="download-history-page-info">第 1 / 1 页</span>
+            <button class="page-button" id="download-history-next">下一页</button>
+          </div>
         </div>
       </section>
     </div>
 
-    <footer><span>BAIDUPCS-GO</span><span>LOCAL ONLY · YOUR SESSION STAYS HERE</span></footer>
+    <footer><span>FILE CONSOLE</span><span>LOCAL ONLY · YOUR SESSION STAYS HERE</span></footer>
   </main>
   <script src="/app.js"></script>
 </body>

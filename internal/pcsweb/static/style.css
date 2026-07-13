@@ -128,6 +128,7 @@ button { font-family: var(--sans); cursor: pointer; }
 .task-empty { padding: 25px 0 12px; color: var(--muted); font: 11px var(--mono); }
 .history-heading { margin-top: 8px; border-top: 1px solid var(--line); }
 .download-history-list { padding: 0 25px 23px; }
+.history-pagination { display: flex; justify-content: center; align-items: center; gap: 13px; border-top: 1px solid var(--line); padding: 12px 20px 15px; color: var(--muted); font: 10px var(--mono); }
 .history-row { display: grid; grid-template-columns: minmax(0, 1fr) 70px 100px; gap: 14px; align-items: center; border-top: 1px solid #edf1eb; padding: 13px 0; }
 .history-main { min-width: 0; }
 .history-main strong, .history-main small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -165,6 +166,7 @@ footer span:last-child { text-align: right; }
   .download-launcher { align-items: stretch; flex-direction: column; padding: 0 18px 18px; }
   .upload-task-list { padding: 0 18px 18px; }
   .download-history-list { padding: 0 18px 18px; }
+  .history-pagination { padding-right: 18px; padding-left: 18px; }
   .task-heading { padding: 18px 18px 10px; }
   .upload-task { grid-template-columns: 34px minmax(0, 1fr) 62px; gap: 9px; }
   .task-meta small { line-height: 1.4; }

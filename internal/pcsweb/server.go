@@ -293,7 +293,12 @@ func (s *Server) handleUploadHistory(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"history": history})
+	page, pageSize := historyPageQuery(r)
+	items, totalPages := paginateHistory(history, page, pageSize)
+	if page > totalPages {
+		page = totalPages
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"history": items, "total": len(history), "page": page, "page_size": pageSize, "total_pages": totalPages})
 }
 
 func (s *Server) handleDownloadStart(w http.ResponseWriter, r *http.Request) {
@@ -359,7 +364,12 @@ func (s *Server) handleDownloadHistory(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"history": history})
+	page, pageSize := historyPageQuery(r)
+	items, totalPages := paginateHistory(history, page, pageSize)
+	if page > totalPages {
+		page = totalPages
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"history": items, "total": len(history), "page": page, "page_size": pageSize, "total_pages": totalPages})
 }
 
 func (s *Server) handleDownloadTasks(w http.ResponseWriter, r *http.Request) {
@@ -409,6 +419,40 @@ func queryInt(r *http.Request, key string, fallback int) int {
 		return fallback
 	}
 	return value
+}
+
+func historyPageQuery(r *http.Request) (page, pageSize int) {
+	page = queryInt(r, "page", 1)
+	pageSize = queryInt(r, "page_size", 10)
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+	if pageSize > 50 {
+		pageSize = 50
+	}
+	return page, pageSize
+}
+
+func paginateHistory[T any](history []T, page, pageSize int) ([]T, int) {
+	totalPages := (len(history) + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	start := (page - 1) * pageSize
+	if start >= len(history) {
+		return []T{}, totalPages
+	}
+	end := start + pageSize
+	if end > len(history) {
+		end = len(history)
+	}
+	return history[start:end], totalPages
 }
 
 func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request) {
