@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"time"
 
@@ -113,17 +112,23 @@ func listDownloadHistory() ([]downloadHistoryEntry, error) {
 
 func deduplicateBrowserDownloadHistory(history []downloadHistoryEntry) []downloadHistoryEntry {
 	result := make([]downloadHistoryEntry, 0, len(history))
-	seen := make(map[string]struct{})
+	seen := make(map[string]int64)
 	for _, item := range history {
-		key := item.ID
 		if item.SavePath == "浏览器下载" {
-			key = item.Path + "\x00" + item.SavePath + "\x00" + strconv.FormatInt(item.StartedAt, 10)
+			key := item.Path + "\x00" + item.SavePath
+			if previous, ok := seen[key]; ok && absInt64(item.StartedAt-previous) <= int64((2*time.Minute).Seconds()) {
+				continue
+			}
+			seen[key] = item.StartedAt
 		}
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
 		result = append(result, item)
 	}
 	return result
+}
+
+func absInt64(value int64) int64 {
+	if value < 0 {
+		return -value
+	}
+	return value
 }

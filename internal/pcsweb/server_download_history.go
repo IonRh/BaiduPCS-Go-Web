@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-const serverDownloadHistoryWindow = 10 * time.Minute
+const serverDownloadHistoryWindow = 2 * time.Minute
 
 type serverDownloadHistoryRecord struct {
 	ID       string
