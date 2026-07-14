@@ -120,9 +120,8 @@ button { font-family: var(--sans); cursor: pointer; }
 .directory-item small, .directory-empty { color: var(--muted); font: 10px var(--mono); }
 .directory-empty { padding: 22px 0; text-align: center; }
 .directory-choose { width: 100%; min-height: 40px; }
-.download-launcher { display: flex; align-items: end; gap: 10px; padding: 0 25px 21px; border-bottom: 1px solid var(--line); }
-.server-download-launcher { padding-top: 16px; }
-.download-path-wrap { display: flex; flex: 1; flex-direction: column; gap: 5px; color: var(--muted); font: 9px var(--mono); }
+.download-panel { display: flex; align-items: end; gap: 10px; padding: 0 25px 21px; border-bottom: 1px solid var(--line); }
+.download-path-wrap { display: flex; flex: 1 1 250px; min-width: 0; flex-direction: column; gap: 5px; color: var(--muted); font: 9px var(--mono); }
 .download-path-wrap input { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); outline: none; padding: 10px 11px; font: 12px var(--mono); }
 .download-path-wrap input:focus { border-color: var(--green); box-shadow: 0 0 0 4px rgba(13, 116, 99, .1); }
 .download-actions { display: flex; gap: 8px; }
@@ -183,7 +182,7 @@ footer span:last-child { text-align: right; }
   #app-screen { margin-top: 24px; }
   .login-modal-card { padding: 25px 20px; }
   .upload-heading { align-items: stretch; flex-direction: column; padding: 22px 18px; }
-  .download-launcher { align-items: stretch; flex-direction: column; padding: 0 18px 18px; }
+  .download-panel { align-items: stretch; flex-direction: column; padding: 0 18px 18px; }
   .upload-task-list { padding: 0 18px 18px; }
   .download-history-list { padding: 0 18px 18px; }
   .history-pagination { padding-right: 18px; padding-left: 18px; }
