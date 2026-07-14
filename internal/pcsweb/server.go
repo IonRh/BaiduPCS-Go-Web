@@ -767,7 +767,7 @@ func (s *Server) handleServerDownload(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	sessionID := ensureSession(w, r)
-	historyID, historyErr := beginDownloadHistory(sessionID, localPath, "浏览器下载")
+	historyID, historyErr := beginServerDownloadHistory(sessionID, localPath, info.Size(), info.ModTime())
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", info.Name()))
 	http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 	if historyErr == nil {

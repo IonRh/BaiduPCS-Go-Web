@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -103,5 +104,26 @@ func finishDownloadHistory(id, status, downloadErr string) {
 func listDownloadHistory() ([]downloadHistoryEntry, error) {
 	downloadHistoryMu.Lock()
 	defer downloadHistoryMu.Unlock()
-	return readDownloadHistory()
+	history, err := readDownloadHistory()
+	if err != nil {
+		return nil, err
+	}
+	return deduplicateBrowserDownloadHistory(history), nil
+}
+
+func deduplicateBrowserDownloadHistory(history []downloadHistoryEntry) []downloadHistoryEntry {
+	result := make([]downloadHistoryEntry, 0, len(history))
+	seen := make(map[string]struct{})
+	for _, item := range history {
+		key := item.ID
+		if item.SavePath == "浏览器下载" {
+			key = item.Path + "\x00" + item.SavePath + "\x00" + strconv.FormatInt(item.StartedAt, 10)
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, item)
+	}
+	return result
 }
