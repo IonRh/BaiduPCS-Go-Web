@@ -125,7 +125,8 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/rename", s.handleRename)
 	mux.HandleFunc("/api/upload", s.handleUpload)
 	mux.HandleFunc("/api/file", s.handleFile)
-	mux.HandleFunc("/api/server-download", s.handleServerDownload)
+	mux.HandleFunc("/api/server-download/create", s.handleServerDownloadCreate)
+	mux.HandleFunc("/api/server-download/file/", s.handleServerDownloadFile)
 
 	staticFS, err := fsSub(staticFiles, "static")
 	if err != nil {
@@ -893,7 +894,7 @@ func (s *Server) handleBrowserDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sessionID := ensureSession(w, r)
-	token, err := createBrowserDownloadToken(sessionID, remotePath)
+	token, err := createDownloadToken(sessionID, remotePath, downloadTokenRemote)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -916,7 +917,7 @@ func (s *Server) handleBrowserDownloadFile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	sessionID := ensureSession(w, r)
-	remotePath, err := resolveBrowserDownloadToken(token, sessionID)
+	remotePath, err := resolveDownloadToken(token, sessionID, downloadTokenRemote)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err)
 		return
@@ -980,14 +981,54 @@ func (s *Server) handleBrowserDownloadFile(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-func (s *Server) handleServerDownload(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleServerDownloadCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	var request struct {
+		Path string `json:"path"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	localPath := strings.TrimSpace(request.Path)
+	if localPath == "" {
+		writeError(w, http.StatusBadRequest, errors.New("a server file path is required"))
+		return
+	}
+	info, err := os.Stat(localPath)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("server file is not accessible: %w", err))
+		return
+	}
+	if !info.Mode().IsRegular() {
+		writeError(w, http.StatusBadRequest, errors.New("only a server file can be downloaded"))
+		return
+	}
+	sessionID := ensureSession(w, r)
+	token, err := createDownloadToken(sessionID, localPath, downloadTokenServer)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"url": "/api/server-download/file/" + token})
+}
+
+func (s *Server) handleServerDownloadFile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w)
 		return
 	}
-	localPath := strings.TrimSpace(r.URL.Query().Get("path"))
-	if localPath == "" {
-		writeError(w, http.StatusBadRequest, errors.New("a server file path is required"))
+	token := strings.TrimPrefix(r.URL.Path, "/api/server-download/file/")
+	if token == "" || strings.Contains(token, "/") {
+		writeError(w, http.StatusBadRequest, errors.New("a download token is required"))
+		return
+	}
+	sessionID := ensureSession(w, r)
+	localPath, err := resolveDownloadToken(token, sessionID, downloadTokenServer)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err)
 		return
 	}
 	info, err := os.Stat(localPath)
@@ -1006,7 +1047,6 @@ func (s *Server) handleServerDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	sessionID := ensureSession(w, r)
 	historyID, historyErr := beginServerDownloadHistory(sessionID, localPath, info.Size(), info.ModTime())
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", info.Name()))
 	http.ServeContent(w, r, info.Name(), info.ModTime(), file)

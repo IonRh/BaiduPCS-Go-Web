@@ -663,7 +663,9 @@ document.querySelector("#browser-download").addEventListener("click", () => star
 document.querySelector("#server-browser-download").addEventListener("click", () => {
   const localPath = serverDownloadPath.value.trim();
   if (!localPath) return;
-  window.location.href = `/api/server-download?path=${encodeURIComponent(localPath)}`;
+  requestJSON("/api/server-download/create", "POST", { path: localPath })
+    .then(data => { window.location.href = data.url; })
+    .catch(error => showNotice(error.message));
 });
 document.querySelector("#share-refresh").addEventListener("click", () => loadShares(state.sharePage));
 shareOpenCreate.addEventListener("click", () => openShareModal());

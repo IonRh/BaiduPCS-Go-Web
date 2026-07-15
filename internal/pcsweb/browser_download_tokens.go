@@ -8,53 +8,63 @@ import (
 	"time"
 )
 
-const browserDownloadTokenTTL = 24 * time.Hour
+const downloadTokenTTL = 24 * time.Hour
 
-type browserDownloadToken struct {
-	SessionID  string
-	RemotePath string
-	ExpiresAt  time.Time
+const (
+	downloadTokenRemote = "remote"
+	downloadTokenServer = "server"
+)
+
+type downloadToken struct {
+	SessionID string
+	Path      string
+	Kind      string
+	ExpiresAt time.Time
 }
 
-var browserDownloadTokens = struct {
+var downloadTokens = struct {
 	sync.Mutex
-	items map[string]browserDownloadToken
+	items map[string]downloadToken
 }{
-	items: make(map[string]browserDownloadToken),
+	items: make(map[string]downloadToken),
 }
 
-func createBrowserDownloadToken(sessionID, remotePath string) (string, error) {
+func createDownloadToken(sessionID, filePath, kind string) (string, error) {
 	data := make([]byte, 32)
 	if _, err := rand.Read(data); err != nil {
 		return "", err
 	}
 	token := hex.EncodeToString(data)
-	browserDownloadTokens.Lock()
+	downloadTokens.Lock()
 	now := time.Now()
-	for existingToken, item := range browserDownloadTokens.items {
+	for existingToken, item := range downloadTokens.items {
 		if now.After(item.ExpiresAt) {
-			delete(browserDownloadTokens.items, existingToken)
+			delete(downloadTokens.items, existingToken)
 		}
 	}
-	browserDownloadTokens.items[token] = browserDownloadToken{
-		SessionID:  sessionID,
-		RemotePath: remotePath,
-		ExpiresAt:  now.Add(browserDownloadTokenTTL),
+	downloadTokens.items[token] = downloadToken{
+		SessionID: sessionID,
+		Path:      filePath,
+		Kind:      kind,
+		ExpiresAt: now.Add(downloadTokenTTL),
 	}
-	browserDownloadTokens.Unlock()
+	downloadTokens.Unlock()
 	return token, nil
 }
 
-func resolveBrowserDownloadToken(token, sessionID string) (string, error) {
-	browserDownloadTokens.Lock()
-	defer browserDownloadTokens.Unlock()
-	item, ok := browserDownloadTokens.items[token]
+func resolveDownloadToken(token, sessionID, kind string) (string, error) {
+	downloadTokens.Lock()
+	defer downloadTokens.Unlock()
+	item, ok := downloadTokens.items[token]
 	if !ok || time.Now().After(item.ExpiresAt) {
-		delete(browserDownloadTokens.items, token)
+		delete(downloadTokens.items, token)
 		return "", errors.New("download link is invalid or expired")
 	}
 	if item.SessionID != sessionID {
 		return "", errors.New("download link does not belong to this session")
 	}
-	return item.RemotePath, nil
+	if item.Kind != kind {
+		return "", errors.New("download link type is invalid")
+	}
+	return item.Path, nil
 }
