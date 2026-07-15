@@ -725,7 +725,12 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	defer os.RemoveAll(tempDir)
+	keepTempDir := true
+	defer func() {
+		if keepTempDir {
+			_ = os.RemoveAll(tempDir)
+		}
+	}()
 
 	localPaths := make([]string, 0, len(fileHeaders))
 	fileNames := make([]string, 0, len(fileHeaders))
@@ -759,12 +764,13 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		fileNames = append(fileNames, name)
 	}
 
-	if err := runUploadJob(sessionID, targetPath, localPaths, fileNames); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"message":     "upload finished",
+	keepTempDir = false
+	go func() {
+		defer os.RemoveAll(tempDir)
+		_ = runUploadJob(sessionID, targetPath, localPaths, fileNames)
+	}()
+	writeJSON(w, http.StatusAccepted, map[string]interface{}{
+		"message":     "upload queued",
 		"target_path": targetPath,
 		"count":       len(localPaths),
 	})

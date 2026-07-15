@@ -817,7 +817,7 @@ uploadButton.addEventListener("click", () => {
       uploadStatus.textContent = "上传失败，请重试";
     } else {
       showUploadNotice("");
-      uploadStatus.textContent = `上传完成 · ${data.count || files.length} 个文件`;
+      uploadStatus.textContent = `上传任务已加入队列 · ${data.count || files.length} 个文件`;
       uploadInput.value = "";
       loadFiles(state.path);
       loadUploadTasks();
