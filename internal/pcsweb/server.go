@@ -118,6 +118,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/download/history", s.handleDownloadHistory)
 	mux.HandleFunc("/api/shares", s.handleShares)
 	mux.HandleFunc("/api/shares/create", s.handleShareCreate)
+	mux.HandleFunc("/api/shares/cancel", s.handleShareCancel)
 	mux.HandleFunc("/api/mkdir", s.handleMkdir)
 	mux.HandleFunc("/api/rename", s.handleRename)
 	mux.HandleFunc("/api/upload", s.handleUpload)
@@ -548,6 +549,33 @@ func (s *Server) handleShares(w http.ResponseWriter, r *http.Request) {
 		"page":     page,
 		"has_next": len(items) > 0,
 	})
+}
+
+func (s *Server) handleShareCancel(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	pcs, err := activePCS()
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	var request struct {
+		ShareIDs []int64 `json:"share_ids"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	if len(request.ShareIDs) == 0 {
+		writeError(w, http.StatusBadRequest, errors.New("at least one share id is required"))
+		return
+	}
+	if pcsErr := pcs.ShareCancel(request.ShareIDs); pcsErr != nil {
+		writeError(w, http.StatusBadGateway, pcsErr)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "share cancelled"})
 }
 
 func shareExpiryLabel(record *baidupcs.ShareRecordInfo) string {

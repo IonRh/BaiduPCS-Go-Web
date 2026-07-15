@@ -434,7 +434,7 @@ function renderShareList(shares, page, hasNext) {
     return `<div class="share-row">
       <div class="share-main"><strong>${escapeHTML(item.path || "分享项目")}</strong><small>${escapeHTML(item.visibility)} · ${escapeHTML(item.expires)} · 浏览 ${item.view_count} 次</small></div>
       <div class="share-link"><a href="${escapeHTML(item.link)}" target="_blank" rel="noreferrer">${escapeHTML(item.link || "暂无链接")}</a><small>提取码：${escapeHTML(item.password || "无")}</small></div>
-      <button type="button" class="quiet-button share-copy" data-copy-link="${escapeHTML(copyLink)}">复制</button>
+      <div class="share-row-actions"><button type="button" class="quiet-button share-copy" data-copy-link="${escapeHTML(copyLink)}">复制</button><button type="button" class="quiet-button share-cancel" data-share-id="${item.share_id}">取消分享</button></div>
     </div>`;
   }).join("");
   shareList.querySelectorAll("[data-copy-link]").forEach(button => button.addEventListener("click", async () => {
@@ -444,6 +444,17 @@ function renderShareList(shares, page, hasNext) {
       setTimeout(() => { button.textContent = "复制"; }, 1200);
     } catch (_) {
       showShareNotice("复制失败，请手动复制链接");
+    }
+  }));
+  shareList.querySelectorAll("[data-share-id]").forEach(button => button.addEventListener("click", async () => {
+    if (!window.confirm("确定取消这个分享吗？")) return;
+    button.disabled = true;
+    try {
+      await requestJSON("/api/shares/cancel", "POST", { share_ids: [Number(button.dataset.shareId)] });
+      await loadShares(state.sharePage);
+    } catch (error) {
+      showShareNotice(error.message);
+      button.disabled = false;
     }
   }));
 }

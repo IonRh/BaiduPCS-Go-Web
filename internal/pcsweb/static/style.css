@@ -165,7 +165,8 @@ button { font-family: var(--sans); cursor: pointer; }
 .share-main strong { color: var(--ink); font-size: 12px; }
 .share-main small, .share-link small { color: var(--muted); font: 10px var(--mono); margin-top: 4px; }
 .share-link a { color: var(--green); font: 11px var(--mono); }
-.share-copy { white-space: nowrap; }
+.share-row-actions { display: flex; gap: 8px; }
+.share-copy, .share-cancel { white-space: nowrap; }
 .share-list-heading { margin-top: 8px; }
 .table-select { display: flex; align-items: center; gap: 6px; }
 .table-select input, .overview-select, .upload-history-select { accent-color: var(--green); }
@@ -244,6 +245,7 @@ footer span:last-child { text-align: right; }
   .share-list { padding: 0 18px 18px; }
   .share-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
   .share-link { grid-column: 1 / -1; }
+  .share-row-actions { grid-column: 1 / -1; }
   .upload-task-list { padding: 0 18px 18px; }
   .download-history-list { padding: 0 18px 18px; }
   .history-pagination { padding-right: 18px; padding-left: 18px; }
