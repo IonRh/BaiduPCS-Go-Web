@@ -657,9 +657,8 @@ document.addEventListener("keydown", event => {
   if (event.key === "Escape" && !uploadDirectoryModal.hidden) closeUploadDirectoryPicker();
 });
 setInterval(() => {
+  // Tasks need live progress; histories refresh on explicit page actions.
   loadUploadTasks();
-  loadUploadHistory();
   loadDownloadTasks();
-  loadDownloadHistory();
 }, 3000);
 loadAccessStatus().then(accessGranted => { if (accessGranted) loadAppData(); });
