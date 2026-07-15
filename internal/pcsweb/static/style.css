@@ -50,10 +50,14 @@ body {
 .task-badge { display: inline-grid; place-items: center; min-width: 17px; height: 17px; margin-left: 4px; padding: 0 4px; border-radius: 99px; background: var(--coral); color: white; font: 9px var(--mono); vertical-align: 1px; }
 .modal { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; }
 .modal[hidden] { display: none !important; }
-.modal-backdrop { position: absolute; inset: 0; background: rgba(27, 41, 40, .28); backdrop-filter: blur(4px); }
-.login-modal-card { position: relative; width: min(100%, 540px); border: 1px solid rgba(255, 255, 255, .8); border-radius: 18px; padding: 30px; background: var(--paper); box-shadow: 0 24px 80px rgba(27, 41, 40, .22); animation: modal-in .2s ease-out; }
-.login-modal-card h2 { margin: 0; font-size: 30px; letter-spacing: -.06em; }
-.modal-copy { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 10px 0 0; }
+.modal-backdrop { position: absolute; inset: 0; background: rgba(27, 41, 40, .34); backdrop-filter: blur(8px); }
+.login-modal-card { position: relative; width: min(100%, 540px); overflow: hidden; border: 1px solid rgba(255, 255, 255, .9); border-radius: 24px; padding: 34px; background: linear-gradient(145deg, #fcfdf7 0%, #edf4e7 100%); box-shadow: 0 28px 90px rgba(27, 41, 40, .28); animation: modal-in .2s ease-out; }
+.login-modal-card::before { position: absolute; top: -120px; right: -80px; width: 260px; height: 260px; border: 1px solid rgba(13, 116, 99, .12); border-radius: 50%; background: radial-gradient(circle at 35% 35%, rgba(213, 237, 119, .8), rgba(213, 237, 119, 0) 68%); content: ""; }
+.login-modal-card::after { position: absolute; right: 34px; bottom: 0; left: 34px; height: 3px; border-radius: 3px 3px 0 0; background: linear-gradient(90deg, var(--green), var(--lime), var(--coral)); content: ""; opacity: .75; }
+.login-modal-card > * { position: relative; z-index: 1; }
+.login-emblem { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 22px; border: 1px solid rgba(13, 116, 99, .18); border-radius: 15px 15px 15px 4px; background: var(--green); color: var(--lime); box-shadow: 8px 8px 0 rgba(13, 116, 99, .08); font: 25px var(--mono); }
+.login-modal-card h2 { margin: 0; font-size: 34px; letter-spacing: -.07em; line-height: 1.05; }
+.modal-copy { max-width: 390px; color: var(--muted); font-size: 13px; line-height: 1.7; margin: 12px 0 0; }
 .modal-close { position: absolute; top: 14px; right: 16px; border: 0; background: transparent; color: var(--muted); font-size: 25px; line-height: 1; }
 .pagination { display: flex; justify-content: center; align-items: center; gap: 13px; border-top: 1px solid var(--line); padding: 15px 20px; color: var(--muted); font: 10px var(--mono); }
 .page-button { border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--green); padding: 7px 10px; font-size: 11px; }
@@ -64,7 +68,9 @@ body {
 .access-password-input { display: block; width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; outline: none; background: rgba(255, 255, 251, .86); color: var(--ink); font: 13px var(--mono); }
 .access-password-input:focus { border-color: var(--green); box-shadow: 0 0 0 4px rgba(13, 116, 99, .1); }
 .login-hint { color: var(--muted); font: 10px/1.6 var(--mono); margin: 10px 0 17px; }
-.login-button { min-height: 42px; padding: 0 18px; }
+.login-modal-card form { margin-top: 24px; }
+.login-button { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 46px; padding: 0 18px; border-radius: 11px; }
+.login-button:hover { background: var(--green-dark); }
 .login-button:disabled { cursor: wait; opacity: .65; }
 .login-notice { margin-top: 14px; padding: 11px 13px; border-radius: 9px; background: #fff2ed; color: #a9503a; font: 11px/1.5 var(--mono); }
 .login-aside { border-left: 1px solid var(--line); padding-left: 25px; color: var(--muted); }
