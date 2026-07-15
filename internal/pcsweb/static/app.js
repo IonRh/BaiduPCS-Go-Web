@@ -494,10 +494,15 @@ async function startDownload(remotePath) {
   }
 }
 
-function startBrowserDownload(remotePath) {
+async function startBrowserDownload(remotePath) {
   remotePath = String(remotePath || "").trim();
   if (!remotePath) return;
-  window.location.href = `/api/download?path=${encodeURIComponent(remotePath)}`;
+  try {
+    const data = await requestJSON("/api/download/browser", "POST", { path: remotePath });
+    window.location.href = data.url;
+  } catch (error) {
+    showNotice(error.message);
+  }
 }
 
 function switchTab(tab) {

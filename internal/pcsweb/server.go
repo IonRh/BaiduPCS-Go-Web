@@ -114,6 +114,8 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/upload/history", s.handleUploadHistory)
 	mux.HandleFunc("/api/upload/local", s.handleLocalUpload)
 	mux.HandleFunc("/api/download/start", s.handleDownloadStart)
+	mux.HandleFunc("/api/download/browser", s.handleBrowserDownload)
+	mux.HandleFunc("/api/download/file/", s.handleBrowserDownloadFile)
 	mux.HandleFunc("/api/download/tasks", s.handleDownloadTasks)
 	mux.HandleFunc("/api/download/history", s.handleDownloadHistory)
 	mux.HandleFunc("/api/shares", s.handleShares)
@@ -123,7 +125,6 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/rename", s.handleRename)
 	mux.HandleFunc("/api/upload", s.handleUpload)
 	mux.HandleFunc("/api/file", s.handleFile)
-	mux.HandleFunc("/api/download", s.handleDownload)
 	mux.HandleFunc("/api/server-download", s.handleServerDownload)
 
 	staticFS, err := fsSub(staticFiles, "static")
@@ -870,14 +871,54 @@ func (s *Server) handleFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"message": "deleted"})
 }
 
-func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
+
+func (s *Server) handleBrowserDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	if _, err := activePCS(); err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	var request struct {
+		Path string `json:"path"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	remotePath := normalizePath(request.Path)
+	if remotePath == "/" {
+		writeError(w, http.StatusBadRequest, errors.New("a file path is required"))
+		return
+	}
+	sessionID := ensureSession(w, r)
+	token, err := createBrowserDownloadToken(sessionID, remotePath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"url": "/api/download/file/" + token})
+}
+
+func (s *Server) handleBrowserDownloadFile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w)
 		return
 	}
-	remotePath := r.URL.Query().Get("path")
-	if remotePath == "" || normalizePath(remotePath) == "/" {
-		writeError(w, http.StatusBadRequest, errors.New("a file path is required"))
+	if _, err := activePCS(); err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	token := strings.TrimPrefix(r.URL.Path, "/api/download/file/")
+	if token == "" || strings.Contains(token, "/") {
+		writeError(w, http.StatusBadRequest, errors.New("a download token is required"))
+		return
+	}
+	sessionID := ensureSession(w, r)
+	remotePath, err := resolveBrowserDownloadToken(token, sessionID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err)
 		return
 	}
 
@@ -888,7 +929,6 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	remotePath = normalizePath(remotePath)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", path.Base(remotePath)))
-	sessionID := ensureSession(w, r)
 	historyID, historyErr := beginDownloadHistory(sessionID, remotePath, "浏览器下载")
 	err = pcs.DownloadFile(remotePath, func(downloadURL string, jar http.CookieJar) error {
 		request, requestErr := http.NewRequestWithContext(r.Context(), http.MethodGet, downloadURL, nil)
