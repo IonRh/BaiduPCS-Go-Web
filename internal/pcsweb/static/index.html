@@ -100,15 +100,15 @@
               <span id="upload-status">选择文件后上传至指定目录</span>
             </div>
             <div class="upload-controls">
+              <label class="file-picker">
+                <input id="upload-files" type="file" multiple>
+                <span>选择文件</span>
+              </label>
               <div class="select-wrap">
                 <span>上传到</span>
                 <input id="upload-directory" type="hidden" value="/">
                 <button type="button" class="directory-trigger" id="upload-directory-trigger" aria-haspopup="dialog">根目录</button>
               </div>
-              <label class="file-picker">
-                <input id="upload-files" type="file" multiple>
-                <span>选择文件</span>
-              </label>
               <button class="upload-button" id="upload-button" disabled>开始上传</button>
             </div>
             <div class="server-upload">
@@ -143,19 +143,23 @@
             <button class="quiet-button" id="download-refresh">刷新任务</button>
           </div>
           <div class="download-panel">
-            <label class="download-path-wrap">
-              <span>网盘路径</span>
-              <input id="download-path" type="text" placeholder="例如：/文档/资料.zip">
-            </label>
-            <div class="download-actions">
-              <button class="quiet-button" id="browser-download">浏览器接收</button>
-              <button class="primary-button" id="download-start">加入服务器队列</button>
+            <div class="download-group">
+              <label class="download-path-wrap">
+                <span>网盘路径</span>
+                <input id="download-path" type="text" placeholder="例如：/文档/资料.zip">
+              </label>
+              <div class="download-actions">
+                <button class="quiet-button" id="browser-download">浏览器接收</button>
+                <button class="primary-button" id="download-start">下载至服务器</button>
+              </div>
             </div>
-            <label class="download-path-wrap">
-              <span>服务器文件路径</span>
-              <input id="server-download-path" type="text" placeholder="例如：D:\\Media\\video.mp4 或 /data/video">
-            </label>
-            <button type="button" class="primary-button" id="server-browser-download">下载到本地</button>
+            <div class="download-group server-download-group">
+              <label class="download-path-wrap">
+                <span>服务器文件路径</span>
+                <input id="server-download-path" type="text" placeholder="例如：D:\\Media\\video.mp4 或 /data/video">
+              </label>
+              <button type="button" class="primary-button" id="server-browser-download">下载到本地</button>
+            </div>
           </div>
           <div class="task-heading"><span>正在下载</span><small id="download-task-summary">暂无任务</small></div>
           <div id="download-task-list" class="upload-task-list"></div>
