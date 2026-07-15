@@ -19,6 +19,7 @@
         <button type="button" class="tab active" id="overview-tab" data-tab="overview">文件概览</button>
         <button type="button" class="tab" id="upload-tab" data-tab="upload">文件上传 <span class="task-badge" id="task-count" hidden>0</span></button>
         <button type="button" class="tab" id="download-tab" data-tab="download">文件下载 <span class="task-badge" id="download-task-count" hidden>0</span></button>
+        <button type="button" class="tab" id="share-tab" data-tab="share">文件分享</button>
       </nav>
       <div class="connection">
         <span class="pulse"></span>
@@ -163,6 +164,56 @@
             <button class="page-button" id="download-history-prev">上一页</button>
             <span id="download-history-page-info">第 1 / 1 页</span>
             <button class="page-button" id="download-history-next">下一页</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="share-pane" class="tab-pane" hidden>
+        <div class="workspace share-workspace">
+          <div class="upload-heading">
+            <div>
+              <p class="eyebrow">SHARE CENTER</p>
+              <h2>文件分享</h2>
+              <p>创建网盘分享链接，设置有效期和提取码。</p>
+            </div>
+            <button type="button" class="quiet-button" id="share-refresh">刷新分享</button>
+          </div>
+          <div class="share-creator">
+            <label class="share-path-wrap">
+              <span>网盘文件或目录路径</span>
+              <textarea id="share-paths" rows="3" placeholder="例如：/文档/资料.zip&#10;每行一个路径"></textarea>
+            </label>
+            <div class="share-options">
+              <label class="share-option">
+                <span>提取码</span>
+                <input id="share-password" type="text" maxlength="4" inputmode="text" placeholder="自动生成">
+              </label>
+              <label class="share-option period-option">
+                <span>有效期（天）</span>
+                <input id="share-period" type="number" min="0" value="0">
+                <small>0 为永久</small>
+              </label>
+              <button type="button" class="primary-button share-create-button" id="share-create">创建分享</button>
+            </div>
+          </div>
+          <div id="share-notice" class="notice share-notice" hidden></div>
+          <div id="share-result" class="share-result" hidden>
+            <div>
+              <span class="share-result-label">分享链接</span>
+              <a id="share-result-link" target="_blank" rel="noreferrer"></a>
+            </div>
+            <div>
+              <span class="share-result-label">提取码</span>
+              <strong id="share-result-password"></strong>
+            </div>
+            <button type="button" class="quiet-button" id="share-copy-result">复制链接</button>
+          </div>
+          <div class="task-heading share-list-heading"><span>已有分享</span><small id="share-summary">暂无记录</small></div>
+          <div id="share-list" class="share-list"></div>
+          <div class="history-pagination" id="share-pagination" hidden>
+            <button type="button" class="page-button" id="share-prev">上一页</button>
+            <span id="share-page-info">第 1 页</span>
+            <button type="button" class="page-button" id="share-next">下一页</button>
           </div>
         </div>
       </section>

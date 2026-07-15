@@ -1,4 +1,4 @@
-const state = { path: "/", page: 1, pageSize: 12, totalPages: 1, activeTab: "overview", uploadTargetPath: "/", uploadTargetSelected: false, uploadPickerPath: "/", uploadHistoryPage: 1, downloadHistoryPage: 1, historyPageSize: 10 };
+const state = { path: "/", page: 1, pageSize: 12, totalPages: 1, activeTab: "overview", uploadTargetPath: "/", uploadTargetSelected: false, uploadPickerPath: "/", uploadHistoryPage: 1, downloadHistoryPage: 1, sharePage: 1, latestShareLink: "", latestSharePassword: "", historyPageSize: 10 };
 const list = document.querySelector("#file-list");
 const notice = document.querySelector("#notice");
 const breadcrumbs = document.querySelector("#breadcrumbs");
@@ -39,6 +39,8 @@ const uploadHistoryNext = document.querySelector("#upload-history-next");
 const uploadHistoryPageInfo = document.querySelector("#upload-history-page-info");
 const downloadTab = document.querySelector("#download-tab");
 const downloadPane = document.querySelector("#download-pane");
+const shareTab = document.querySelector("#share-tab");
+const sharePane = document.querySelector("#share-pane");
 const downloadTaskCount = document.querySelector("#download-task-count");
 const downloadTaskSummary = document.querySelector("#download-task-summary");
 const downloadTaskList = document.querySelector("#download-task-list");
@@ -54,6 +56,20 @@ const uploadDirectoryModal = document.querySelector("#upload-directory-modal");
 const uploadDirectoryCurrent = document.querySelector("#upload-directory-current");
 const uploadDirectoryList = document.querySelector("#upload-directory-list");
 const uploadDirectoryUp = document.querySelector("#upload-directory-up");
+const sharePaths = document.querySelector("#share-paths");
+const sharePassword = document.querySelector("#share-password");
+const sharePeriod = document.querySelector("#share-period");
+const shareCreate = document.querySelector("#share-create");
+const shareNotice = document.querySelector("#share-notice");
+const shareResult = document.querySelector("#share-result");
+const shareResultLink = document.querySelector("#share-result-link");
+const shareResultPassword = document.querySelector("#share-result-password");
+const shareList = document.querySelector("#share-list");
+const shareSummary = document.querySelector("#share-summary");
+const sharePagination = document.querySelector("#share-pagination");
+const sharePrev = document.querySelector("#share-prev");
+const shareNext = document.querySelector("#share-next");
+const sharePageInfo = document.querySelector("#share-page-info");
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
@@ -326,6 +342,75 @@ async function loadDownloadHistory(page = state.downloadHistoryPage) {
   }
 }
 
+function showShareNotice(message) {
+  shareNotice.textContent = message;
+  shareNotice.hidden = !message;
+}
+
+function combinedShareLink(link, password) {
+  if (!password) return link;
+  return `${link}${link.includes("?") ? "&" : "?"}pwd=${encodeURIComponent(password)}`;
+}
+
+async function copyText(value) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const helper = document.createElement("textarea");
+  helper.value = value;
+  helper.style.position = "fixed";
+  helper.style.opacity = "0";
+  document.body.appendChild(helper);
+  helper.select();
+  document.execCommand("copy");
+  helper.remove();
+}
+
+function renderShareList(shares, page, hasNext) {
+  state.sharePage = page;
+  shareSummary.textContent = shares.length ? `${shares.length} 条记录` : "暂无记录";
+  sharePagination.hidden = page <= 1 && !hasNext;
+  sharePageInfo.textContent = `第 ${page} 页`;
+  sharePrev.disabled = page <= 1;
+  shareNext.disabled = !hasNext;
+  if (!shares.length) {
+    shareList.innerHTML = '<div class="task-empty">还没有分享记录。</div>';
+    return;
+  }
+  shareList.innerHTML = shares.map(item => {
+    const copyLink = combinedShareLink(item.link, item.password);
+    return `<div class="share-row">
+      <div class="share-main"><strong>${escapeHTML(item.path || "分享项目")}</strong><small>${escapeHTML(item.visibility)} · ${escapeHTML(item.expires)} · 浏览 ${item.view_count} 次</small></div>
+      <div class="share-link"><a href="${escapeHTML(item.link)}" target="_blank" rel="noreferrer">${escapeHTML(item.link || "暂无链接")}</a><small>提取码：${escapeHTML(item.password || "无")}</small></div>
+      <button type="button" class="quiet-button share-copy" data-copy-link="${escapeHTML(copyLink)}">复制</button>
+    </div>`;
+  }).join("");
+  shareList.querySelectorAll("[data-copy-link]").forEach(button => button.addEventListener("click", async () => {
+    try {
+      await copyText(button.dataset.copyLink);
+      button.textContent = "已复制";
+      setTimeout(() => { button.textContent = "复制"; }, 1200);
+    } catch (_) {
+      showShareNotice("复制失败，请手动复制链接");
+    }
+  }));
+}
+
+async function loadShares(page = state.sharePage) {
+  if (appScreen.hidden) return;
+  try {
+    const response = await fetch(`/api/shares?page=${page}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "读取分享列表失败");
+    renderShareList(data.shares || [], data.page || page, Boolean(data.has_next));
+  } catch (error) {
+    shareList.innerHTML = `<div class="task-empty">${escapeHTML(error.message)}</div>`;
+    sharePagination.hidden = true;
+    shareSummary.textContent = "读取失败";
+  }
+}
+
 async function startDownload(remotePath) {
   remotePath = String(remotePath || "").trim();
   if (!remotePath) return;
@@ -353,13 +438,16 @@ function switchTab(tab) {
   overviewTab.classList.toggle("active", overview);
   uploadTab.classList.toggle("active", tab === "upload");
   downloadTab.classList.toggle("active", tab === "download");
+  shareTab.classList.toggle("active", tab === "share");
   overviewPane.hidden = !overview;
   uploadPane.hidden = tab !== "upload";
   downloadPane.hidden = tab !== "download";
+  sharePane.hidden = tab !== "share";
   if (tab === "upload") loadUploadTasks();
   if (tab === "upload") loadUploadHistory();
   if (tab === "download") loadDownloadTasks();
   if (tab === "download") loadDownloadHistory();
+  if (tab === "share") loadShares();
 }
 
 async function loadStatus() {
@@ -483,6 +571,7 @@ document.querySelector("#mkdir-button").addEventListener("click", createFolder);
 overviewTab.addEventListener("click", () => switchTab("overview"));
 uploadTab.addEventListener("click", () => switchTab("upload"));
 downloadTab.addEventListener("click", () => switchTab("download"));
+shareTab.addEventListener("click", () => switchTab("share"));
 document.querySelector("#upload-refresh").addEventListener("click", () => { loadUploadTasks(); loadUploadHistory(); });
 document.querySelector("#download-refresh").addEventListener("click", () => { loadDownloadTasks(); loadDownloadHistory(); });
 document.querySelector("#download-start").addEventListener("click", () => startDownload(downloadPath.value));
@@ -491,6 +580,55 @@ document.querySelector("#server-browser-download").addEventListener("click", () 
   const localPath = serverDownloadPath.value.trim();
   if (!localPath) return;
   window.location.href = `/api/server-download?path=${encodeURIComponent(localPath)}`;
+});
+document.querySelector("#share-refresh").addEventListener("click", () => loadShares(state.sharePage));
+sharePrev.addEventListener("click", () => loadShares(state.sharePage - 1));
+shareNext.addEventListener("click", () => loadShares(state.sharePage + 1));
+shareCreate.addEventListener("click", async () => {
+  const paths = sharePaths.value.split(/\r?\n/).map(path => path.trim()).filter(Boolean);
+  const password = sharePassword.value.trim();
+  const period = Number.parseInt(sharePeriod.value, 10) || 0;
+  if (!paths.length) {
+    showShareNotice("请输入至少一个网盘文件或目录路径");
+    return;
+  }
+  if (password && password.length !== 4) {
+    showShareNotice("提取码需要填写 4 位字符");
+    return;
+  }
+  if (period < 0) {
+    showShareNotice("有效期不能小于 0");
+    return;
+  }
+  shareCreate.disabled = true;
+  shareCreate.textContent = "正在创建……";
+  showShareNotice("");
+  try {
+    const data = await requestJSON("/api/shares/create", "POST", { paths, password, period });
+    state.latestShareLink = data.link || "";
+    state.latestSharePassword = data.password || "";
+    shareResultLink.href = data.link || "#";
+    shareResultLink.textContent = data.link || "暂无链接";
+    shareResultPassword.textContent = data.password || "无";
+    shareResult.hidden = false;
+    sharePaths.value = "";
+    sharePassword.value = "";
+    await loadShares(1);
+  } catch (error) {
+    showShareNotice(error.message);
+  } finally {
+    shareCreate.disabled = false;
+    shareCreate.textContent = "创建分享";
+  }
+});
+document.querySelector("#share-copy-result").addEventListener("click", async event => {
+  try {
+    await copyText(combinedShareLink(state.latestShareLink, state.latestSharePassword));
+    event.currentTarget.textContent = "已复制";
+    setTimeout(() => { event.currentTarget.textContent = "复制链接"; }, 1200);
+  } catch (_) {
+    showShareNotice("复制失败，请手动复制链接");
+  }
 });
 function openLoginModal() {
   loginModal.hidden = false;

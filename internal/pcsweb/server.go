@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/qjfoidnh/BaiduPCS-Go/baidupcs"
 	"github.com/qjfoidnh/BaiduPCS-Go/internal/pcscommand"
@@ -73,6 +74,16 @@ type downloadTaskResponse struct {
 	Status     string `json:"status"`
 }
 
+type shareListItem struct {
+	ShareID    int64  `json:"share_id"`
+	Path       string `json:"path"`
+	Link       string `json:"link"`
+	Password   string `json:"password"`
+	Visibility string `json:"visibility"`
+	Expires    string `json:"expires"`
+	ViewCount  int    `json:"view_count"`
+}
+
 type renameRequest struct {
 	From string `json:"from"`
 	To   string `json:"to"`
@@ -105,6 +116,8 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("/api/download/start", s.handleDownloadStart)
 	mux.HandleFunc("/api/download/tasks", s.handleDownloadTasks)
 	mux.HandleFunc("/api/download/history", s.handleDownloadHistory)
+	mux.HandleFunc("/api/shares", s.handleShares)
+	mux.HandleFunc("/api/shares/create", s.handleShareCreate)
 	mux.HandleFunc("/api/mkdir", s.handleMkdir)
 	mux.HandleFunc("/api/rename", s.handleRename)
 	mux.HandleFunc("/api/upload", s.handleUpload)
@@ -427,6 +440,124 @@ func (s *Server) handleDownloadTasks(w http.ResponseWriter, r *http.Request) {
 		tasks = append(tasks, downloadTaskResponse{Path: webTask.Path, SavePath: webTask.SavePath, Total: total, Downloaded: downloaded, Progress: progress, Status: webTask.Status})
 	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{"tasks": tasks})
+}
+
+func (s *Server) handleShareCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+	pcs, err := activePCS()
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	var request struct {
+		Paths    []string `json:"paths"`
+		Password string   `json:"password"`
+		Period   int      `json:"period"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	paths := make([]string, 0, len(request.Paths))
+	for _, rawPath := range request.Paths {
+		for _, line := range strings.Split(rawPath, "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			paths = append(paths, normalizePath(line))
+		}
+	}
+	if len(paths) == 0 {
+		writeError(w, http.StatusBadRequest, errors.New("at least one file or directory path is required"))
+		return
+	}
+	if request.Period < 0 {
+		writeError(w, http.StatusBadRequest, errors.New("period must be zero or a positive number of days"))
+		return
+	}
+	request.Password = strings.TrimSpace(request.Password)
+	if request.Password != "" && len(request.Password) != 4 {
+		writeError(w, http.StatusBadRequest, errors.New("the share password must contain 4 characters"))
+		return
+	}
+	shared, pcsErr := pcs.ShareSet(paths, &baidupcs.ShareOption{Password: request.Password, Period: request.Period})
+	if pcsErr != nil {
+		writeError(w, http.StatusBadGateway, pcsErr)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"share_id": shared.ShareID,
+		"link":     shared.Link,
+		"password": shared.Pwd,
+	})
+}
+
+func (s *Server) handleShares(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	pcs, err := activePCS()
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, err)
+		return
+	}
+	page := queryInt(r, "page", 1)
+	if page < 1 {
+		page = 1
+	}
+	records, pcsErr := pcs.ShareList(page)
+	if pcsErr != nil {
+		writeError(w, http.StatusBadGateway, pcsErr)
+		return
+	}
+	items := make([]shareListItem, 0, len(records))
+	for _, record := range records {
+		if record == nil {
+			continue
+		}
+		link := record.Shortlink
+		password := ""
+		if record.Public == 0 && record.ExpireType != -1 {
+			if info, infoErr := pcs.ShareSURLInfo(record.ShareID); infoErr == nil && info != nil {
+				password = strings.TrimSpace(info.Pwd)
+				if link == "" {
+					link = info.ShortURL
+				}
+			}
+		}
+		visibility := "私密分享"
+		if record.Public != 0 {
+			visibility = "公开分享"
+		}
+		items = append(items, shareListItem{
+			ShareID:    record.ShareID,
+			Path:       record.TypicalPath,
+			Link:       link,
+			Password:   password,
+			Visibility: visibility,
+			Expires:    shareExpiryLabel(record),
+			ViewCount:  record.ViewCount,
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"shares":   items,
+		"page":     page,
+		"has_next": len(items) > 0,
+	})
+}
+
+func shareExpiryLabel(record *baidupcs.ShareRecordInfo) string {
+	if record.ExpireType == -1 {
+		return "已过期"
+	}
+	if record.ExpireTime == 0 {
+		return "永久"
+	}
+	return time.Now().Add(time.Duration(record.ExpireTime) * time.Second).Format("2006-01-02 15:04")
 }
 
 func downloadProgress(savePath string) (total, downloaded int64) {
