@@ -116,7 +116,14 @@ function setUploadDirectory(path, selected = state.uploadTargetSelected) {
   state.uploadTargetPath = path || "/";
   state.uploadTargetSelected = selected;
   uploadDirectory.value = state.uploadTargetPath;
-  uploadDirectoryTrigger.textContent = displayRemotePath(state.uploadTargetPath);
+  uploadDirectoryTrigger.textContent = selected ? displayRemotePath(state.uploadTargetPath) : "选择上传目录";
+  updateUploadControls();
+}
+
+function updateUploadControls() {
+  const targetSelected = state.uploadTargetSelected && Boolean(uploadDirectory.value);
+  uploadButton.disabled = uploadInput.files.length === 0 || !targetSelected;
+  serverUploadButton.disabled = !targetSelected;
 }
 
 function parentRemotePath(path) {
@@ -789,13 +796,21 @@ loginForm.addEventListener("submit", async event => {
 });
 uploadInput.addEventListener("change", () => {
   const count = uploadInput.files.length;
-  uploadButton.disabled = count === 0;
+  updateUploadControls();
   showUploadNotice("");
+  if (!state.uploadTargetSelected) {
+    uploadStatus.textContent = count ? "已选择文件，请先选择上传目录" : "请先选择上传目录";
+    return;
+  }
   uploadStatus.textContent = count ? `已选择 ${count} 个文件，目标：${uploadDirectory.value}` : "选择文件后上传至指定目录";
 });
 uploadButton.addEventListener("click", () => {
   const files = Array.from(uploadInput.files);
   if (!files.length) return;
+  if (!state.uploadTargetSelected) {
+    showUploadNotice("请先选择上传目录");
+    return;
+  }
 
   const formData = new FormData();
   formData.append("target_path", uploadDirectory.value);
@@ -823,18 +838,22 @@ uploadButton.addEventListener("click", () => {
       loadUploadTasks();
       loadUploadHistory();
     }
-    uploadButton.disabled = false;
+    updateUploadControls();
   });
   request.addEventListener("error", () => {
     showUploadNotice("上传连接中断");
     uploadStatus.textContent = "上传失败，请重试";
-    uploadButton.disabled = false;
+    updateUploadControls();
   });
   request.send(formData);
 });
 serverUploadButton.addEventListener("click", async event => {
   event.preventDefault();
   event.stopPropagation();
+  if (!state.uploadTargetSelected) {
+    showUploadNotice("请先选择上传目录");
+    return;
+  }
   const localPath = serverUploadPath.value.trim();
   if (!localPath) {
     showUploadNotice("请输入服务器本地文件路径");
@@ -854,7 +873,7 @@ serverUploadButton.addEventListener("click", async event => {
     showUploadNotice(error.message);
     uploadStatus.textContent = "服务器文件上传失败";
   } finally {
-    serverUploadButton.disabled = false;
+    updateUploadControls();
     serverUploadButton.textContent = "上传服务器文件";
   }
 });
@@ -864,6 +883,10 @@ document.querySelector("#upload-directory-close-backdrop").addEventListener("cli
 uploadDirectoryUp.addEventListener("click", () => loadUploadDirectoryPicker(parentRemotePath(state.uploadPickerPath)));
 document.querySelector("#upload-directory-choose").addEventListener("click", () => {
   setUploadDirectory(state.uploadPickerPath, true);
+  uploadStatus.textContent = uploadInput.files.length
+    ? `已选择 ${uploadInput.files.length} 个文件，目标：${uploadDirectory.value}`
+    : `已选择上传目录：${uploadDirectory.value}`;
+  showUploadNotice("");
   closeUploadDirectoryPicker();
 });
 document.addEventListener("keydown", event => {
