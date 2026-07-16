@@ -218,6 +218,8 @@ button { font-family: var(--sans); cursor: pointer; }
 .file-row:hover .row-actions, .row-actions:focus-within { opacity: 1; }
 .row-actions button { border: 0; background: transparent; color: var(--muted); padding: 6px; font-size: 15px; }
 .row-actions button:hover { color: var(--green); }
+.row-actions button[data-delete] { color: #b34f3b; }
+.row-actions button[data-delete]:hover { color: #8f3022; }
 .empty, .loading, .notice { padding: 38px 25px; color: var(--muted); font: 12px var(--mono); }
 .notice { border-top: 1px solid var(--line); color: #a9503a; background: #fff7f2; }
 footer { grid-template-columns: 1fr 1fr; color: #96a39b; font: 9px var(--mono); letter-spacing: .12em; padding: 24px 2px 0; }

@@ -196,6 +196,7 @@ function renderFiles(items) {
       <div class="row-actions">
         ${item.is_dir ? "" : `<button title="下载" data-download="${escapeHTML(item.path)}">↓</button>`}
         <button title="重命名" data-rename="${escapeHTML(item.path)}" data-name="${escapeHTML(item.name)}">✎</button>
+        <button title="删除" data-delete="${escapeHTML(item.path)}" data-name="${escapeHTML(item.name)}" data-dir="${item.is_dir}">×</button>
       </div>
     </div>`).join("");
 
@@ -211,6 +212,7 @@ function renderFiles(items) {
     startBrowserDownload(button.dataset.download);
   }));
   list.querySelectorAll("[data-rename]").forEach(button => button.addEventListener("click", () => renameItem(button.dataset.rename, button.dataset.name)));
+  list.querySelectorAll("[data-delete]").forEach(button => button.addEventListener("click", () => deleteItem(button.dataset.delete, button.dataset.name, button.dataset.dir === "true")));
 }
 
 function renderPagination(total, page, totalPages) {
@@ -638,6 +640,18 @@ async function renameItem(oldPath, oldName) {
   const parent = oldPath.slice(0, oldPath.lastIndexOf("/")) || "/";
   try { await requestJSON("/api/rename", "POST", { from: oldPath, to: `${parent}/${name.trim()}` }); await loadFiles(state.path); }
   catch (error) { showNotice(error.message); }
+}
+
+async function deleteItem(filePath, fileName, isDirectory) {
+  const type = isDirectory ? "目录" : "文件";
+  if (!window.confirm(`确定删除${type}“${fileName}”吗？此操作不可撤销。`)) return;
+  try {
+    await requestJSON(`/api/file?path=${encodeURIComponent(filePath)}`, "DELETE");
+    state.selectedOverviewPaths.delete(filePath);
+    await loadFiles(state.path, state.page);
+  } catch (error) {
+    showNotice(error.message);
+  }
 }
 
 document.querySelector("#refresh-button").addEventListener("click", () => loadFiles(state.path));
